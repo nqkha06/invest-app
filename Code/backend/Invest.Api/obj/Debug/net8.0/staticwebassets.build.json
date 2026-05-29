@@ -1,1 +1,11 @@
-{"Version":1,"Hash":"qZQaVNBp4/b7bGrVJBABDzRi9EgrUMCN6C77o00tTgk=","Source":"Invest.Api","BasePath":"_content/Invest.Api","Mode":"Default","ManifestType":"Build","ReferencedProjectsConfiguration":[],"DiscoveryPatterns":[],"Assets":[],"Endpoints":[]}
+{
+  "Version": 1,
+  "Hash": "Za6wZ6JV76PH6npVRJgoFd3gTQ2rt8TCV6eZPwkCNo4=",
+  "Source": "Invest.Api",
+  "BasePath": "_content/Invest.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
