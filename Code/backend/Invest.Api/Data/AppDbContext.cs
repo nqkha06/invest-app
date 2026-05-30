@@ -9,10 +9,10 @@ public class AppDbContext : DbContext
     {
     }
 
-    // 1. Giữ nguyên bảng Users cũ của nhóm bạn
+    
     public DbSet<User> Users => Set<User>();
     
-    // 2. ĐĂNG KÝ ĐỒNG BỘ: Bảng StockPriceDay chính thức của bạn
+    // 2. ĐĂNG KÝ ĐỒNG BỘ: Bảng StockPriceDay chính thức 
     public DbSet<StockPriceDay> StockPricesDays => Set<StockPriceDay>();
 
     // 3. Cấu hình Fluent API để tạo Index tối ưu dữ liệu (Đoạn code dài)
