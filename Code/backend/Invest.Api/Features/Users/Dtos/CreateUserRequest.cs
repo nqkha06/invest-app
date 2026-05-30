@@ -6,7 +6,7 @@ public class CreateUserRequest
 {
     [Required]
     [StringLength(100)]
-    public string Name { get; set; } = "";
+    public string Username { get; set; } = "";
 
     [Required]
     [EmailAddress]
