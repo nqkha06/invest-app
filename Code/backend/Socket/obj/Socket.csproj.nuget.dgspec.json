@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "d:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj": {}
+    "D:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj": {}
   },
   "projects": {
-    "d:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj": {
+    "D:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "d:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj",
+        "projectUniqueName": "D:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj",
         "projectName": "Socket",
-        "projectPath": "d:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj",
+        "projectPath": "D:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\Socket.csproj",
         "packagesPath": "C:\\Users\\Quang Huy\\.nuget\\packages\\",
-        "outputPath": "d:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\obj\\",
+        "outputPath": "D:\\monhoc\\nam_2\\gr4\\invest-app\\Code\\backend\\Socket\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Quang Huy\\AppData\\Roaming\\NuGet\\NuGet.Config"

@@ -34,27 +34,11 @@ public class AppDbContext : DbContext
 
             entity.Property(x => x.StockId)
                 .HasColumnName("stock_id")
-                .IsRequired()
-                .HasMaxLength(32);
+                .IsRequired();
 
-            entity.Property(x => x.AddedAtUtc)
-                .HasColumnName("added_at_utc")
+            entity.Property(x => x.CreatedAt)
+                .HasColumnName("created_at")
                 .HasDefaultValueSql("GETUTCDATE()");
-
-            entity.Property(x => x.AlertPrice)
-                .HasColumnName("alert_price")
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(x => x.AlertPercent)
-                .HasColumnName("alert_percent")
-                .HasColumnType("decimal(5,2)");
-
-            entity.Property(x => x.IsPinned)
-                .HasColumnName("is_pinned")
-                .HasDefaultValue(false);
-
-            entity.Property(x => x.Note)
-                .HasColumnName("note");
 
             entity.HasIndex(x => new { x.UserId, x.StockId })
                 .IsUnique();
