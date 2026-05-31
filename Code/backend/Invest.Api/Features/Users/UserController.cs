@@ -25,7 +25,7 @@ public class UserController : ControllerBase
             .Select(user => new UserResponse
             {
                 Id = user.Id,
-                Name = user.Name,
+                Username = user.Username,
                 Email = user.Email
             })
             .ToListAsync(ct);
@@ -33,8 +33,8 @@ public class UserController : ControllerBase
         return Ok(users);
     }
 
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<UserResponse>> GetById(int id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<UserResponse>> GetById(long id, CancellationToken ct)
     {
         var user = await _db.Users
             .AsNoTracking()
@@ -42,7 +42,7 @@ public class UserController : ControllerBase
             .Select(current => new UserResponse
             {
                 Id = current.Id,
-                Name = current.Name,
+                Username = current.Username,
                 Email = current.Email
             })
             .FirstOrDefaultAsync(ct);
@@ -63,7 +63,7 @@ public class UserController : ControllerBase
     {
         var user = new UserEntity
         {
-            Name = request.Name.Trim(),
+            Username = request.Username.Trim(),
             Email = request.Email.Trim()
         };
 
@@ -73,16 +73,16 @@ public class UserController : ControllerBase
         var response = new UserResponse
         {
             Id = user.Id,
-            Name = user.Name,
+            Username = user.Username,
             Email = user.Email
         };
 
         return CreatedAtAction(nameof(GetById), new { id = user.Id }, response);
     }
 
-    [HttpPut("{id:int}")]
+    [HttpPut("{id:long}")]
     public async Task<ActionResult<UserResponse>> Update(
-        int id,
+        long id,
         [FromBody] UpdateUserRequest request,
         CancellationToken ct
     )
@@ -94,7 +94,7 @@ public class UserController : ControllerBase
             return NotFound();
         }
 
-        user.Name = request.Name.Trim();
+        user.Username = request.Username.Trim();
         user.Email = request.Email.Trim();
 
         await _db.SaveChangesAsync(ct);
@@ -102,15 +102,15 @@ public class UserController : ControllerBase
         var response = new UserResponse
         {
             Id = user.Id,
-            Name = user.Name,
+            Username = user.Username,
             Email = user.Email
         };
 
         return Ok(response);
     }
 
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {
         var user = await _db.Users.FirstOrDefaultAsync(current => current.Id == id, ct);
 

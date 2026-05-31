@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Invest.Api.Entities;
 
+[Table("users")]
 public class User
 {
     [Key]
