@@ -12,4 +12,5 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<StockPriceMinute> StockPricesMinutes { get; set; }
 }
