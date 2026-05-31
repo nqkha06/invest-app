@@ -4,7 +4,6 @@ using Invest.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
 
@@ -16,115 +15,122 @@ namespace Invest.Api.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
+
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.16")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-
             modelBuilder.Entity("Invest.Api.Entities.StockPriceMinute", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("id");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int")
+                    .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<decimal>("ClosePrice")
-                        .HasColumnType("decimal(18, 4)")
-                        .HasColumnName("close_price");
+                b.Property<decimal>("ClosePrice")
+                    .HasColumnType("decimal(18, 4)")
+                    .HasColumnName("close_price");
 
-                    b.Property<decimal>("HighPrice")
-                        .HasColumnType("decimal(18, 4)")
-                        .HasColumnName("high_price");
+                b.Property<decimal>("HighPrice")
+                    .HasColumnType("decimal(18, 4)")
+                    .HasColumnName("high_price");
 
-                    b.Property<decimal>("LowPrice")
-                        .HasColumnType("decimal(18, 4)")
-                        .HasColumnName("low_price");
+                b.Property<decimal>("LowPrice")
+                    .HasColumnType("decimal(18, 4)")
+                    .HasColumnName("low_price");
 
-                    b.Property<decimal>("OpenPrice")
-                        .HasColumnType("decimal(18, 4)")
-                        .HasColumnName("open_price");
+                b.Property<decimal>("OpenPrice")
+                    .HasColumnType("decimal(18, 4)")
+                    .HasColumnName("open_price");
 
-                    b.Property<string>("Symbol")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)")
-                        .HasColumnName("symbol");
+                b.Property<string>("Symbol")
+                    .IsRequired()
+                    .HasMaxLength(10)
+                    .HasColumnType("nvarchar(10)")
+                    .HasColumnName("symbol");
 
-                    b.Property<DateTime>("Time")
-                        .HasColumnType("datetime2")
-                        .HasColumnName("time");
+                b.Property<DateTime>("Time")
+                    .HasColumnType("datetime2")
+                    .HasColumnName("time");
+
+                b.HasKey("Id");
+
+                b.HasIndex("Symbol", "Time")
+                    .HasDatabaseName("IX_stock_prices_minute_symbol_time");
+
+                b.ToTable("stock_prices_minute");
+            });
 
             modelBuilder.Entity("Invest.Api.Entities.StockPriceDay", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
+            {
+                b.Property<long>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("bigint")
+                    .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<decimal>("ClosePrice")
-                        .HasColumnType("decimal(18, 2)")
-                        .HasColumnName("close_price");
+                b.Property<decimal>("ClosePrice")
+                    .HasColumnType("decimal(18, 2)")
+                    .HasColumnName("close_price");
 
-                    b.Property<decimal>("HighPrice")
-                        .HasColumnType("decimal(18, 2)")
-                        .HasColumnName("high_price");
+                b.Property<decimal>("HighPrice")
+                    .HasColumnType("decimal(18, 2)")
+                    .HasColumnName("high_price");
 
-                    b.Property<decimal>("LowPrice")
-                        .HasColumnType("decimal(18, 2)")
-                        .HasColumnName("low_price");
+                b.Property<decimal>("LowPrice")
+                    .HasColumnType("decimal(18, 2)")
+                    .HasColumnName("low_price");
 
-                    b.Property<decimal>("OpenPrice")
-                        .HasColumnType("decimal(18, 2)")
-                        .HasColumnName("open_price");
+                b.Property<decimal>("OpenPrice")
+                    .HasColumnType("decimal(18, 2)")
+                    .HasColumnName("open_price");
 
-                    b.Property<long>("StockId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("stock_id");
+                b.Property<long>("StockId")
+                    .HasColumnType("bigint")
+                    .HasColumnName("stock_id");
 
-                    b.Property<DateTime>("TradingDate")
-                        .HasColumnType("date")
-                        .HasColumnName("trading_date");
+                b.Property<DateTime>("TradingDate")
+                    .HasColumnType("date")
+                    .HasColumnName("trading_date");
 
-                    b.Property<long>("Volume")
-                        .HasColumnType("bigint")
-                        .HasColumnName("volume");
+                b.Property<long>("Volume")
+                    .HasColumnType("bigint")
+                    .HasColumnName("volume");
 
-                    b.HasKey("Id");
-                    
-                    b.ToTable("stock_prices_minute");
+                b.HasKey("Id");
 
-                    b.HasIndex("StockId", "TradingDate")
-                        .HasDatabaseName("IX_stock_prices_day_stock_id_trading_date");
+                b.HasIndex("StockId", "TradingDate")
+                    .HasDatabaseName("IX_stock_prices_day_stock_id_trading_date");
 
-                    b.ToTable("stock_prices_day");
-                });
+                b.ToTable("stock_prices_day");
+            });
 
             modelBuilder.Entity("Invest.Api.Entities.User", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+            {
+                b.Property<int>("Id")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Email")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                b.Property<string>("Name")
+                    .IsRequired()
+                    .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("Id");
+                b.HasKey("Id");
 
-                    b.ToTable("Users");
-                });
+                b.ToTable("Users");
+            });
+
 #pragma warning restore 612, 618
         }
     }
