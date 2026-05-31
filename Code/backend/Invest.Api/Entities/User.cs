@@ -41,6 +41,6 @@ public class User
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; }
         = new List<RefreshToken>();
 
-    // public virtual ICollection<UserWatchlist> Watchlists { get; set; }
-    //     = new List<UserWatchlist>();
+    public virtual ICollection<UserWatchlist> Watchlists { get; set; }
+        = new List<UserWatchlist>();
 }

@@ -9,8 +9,8 @@ public class AppDbContext : DbContext
     {
     }
 
-    
     public DbSet<User> Users => Set<User>();
-    public DbSet<StockPriceMinute> StockPricesMinutes { get; set; }
+    public DbSet<StockPriceMinute> StockPricesMinutes => Set<StockPriceMinute>();
     public DbSet<StockPriceDay> StockPricesDays => Set<StockPriceDay>();
+    public DbSet<UserWatchlist> UserWatchlists => Set<UserWatchlist>();
 }
