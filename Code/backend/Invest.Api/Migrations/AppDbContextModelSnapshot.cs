@@ -22,6 +22,7 @@ namespace Invest.Api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+
             modelBuilder.Entity("Invest.Api.Entities.StockPriceMinute", b =>
                 {
                     b.Property<int>("Id")
@@ -57,13 +58,51 @@ namespace Invest.Api.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("time");
 
+            modelBuilder.Entity("Invest.Api.Entities.StockPriceDay", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("ClosePrice")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("close_price");
+
+                    b.Property<decimal>("HighPrice")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("high_price");
+
+                    b.Property<decimal>("LowPrice")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("low_price");
+
+                    b.Property<decimal>("OpenPrice")
+                        .HasColumnType("decimal(18, 2)")
+                        .HasColumnName("open_price");
+
+                    b.Property<long>("StockId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("stock_id");
+
+                    b.Property<DateTime>("TradingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("trading_date");
+
                     b.Property<long>("Volume")
                         .HasColumnType("bigint")
                         .HasColumnName("volume");
 
                     b.HasKey("Id");
-
+                    
                     b.ToTable("stock_prices_minute");
+
+                    b.HasIndex("StockId", "TradingDate")
+                        .HasDatabaseName("IX_stock_prices_day_stock_id_trading_date");
+
+                    b.ToTable("stock_prices_day");
                 });
 
             modelBuilder.Entity("Invest.Api.Entities.User", b =>
