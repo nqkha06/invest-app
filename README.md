@@ -7,12 +7,6 @@
 INVEST-APP/
 │
 ├── Code/
-│   ├── backend/         # ASP.NET Backend API
-│   ├── database/        # Docker SQL Server / script DB
-│   ├── desktop/         # Desktop application
-│   └── docs/            # Tài liệu kỹ thuật
-│       └── BACKEND.md
-│
 ├── DOCX/                # Báo cáo Word
 ├── PPTX/                # Slide thuyết trình
 └── README.md
