@@ -36,13 +36,6 @@ cd INVEST-APP
 
 ---
 
-Xem tài liệu backend:
-
-```txt
-Code/docs/BACKEND.md
-```
-
-Xem tài liệu desktop:
 ...
 ---
 
@@ -50,7 +43,6 @@ Xem tài liệu desktop:
 
 | Tài liệu | Mô tả |
 |---------|------|
-| docs/BACKEND.md | Hướng dẫn chạy backend |
 | DOCX/ | Báo cáo đồ án |
 | PPTX/ | Slide thuyết trình |
 
@@ -58,15 +50,9 @@ Xem tài liệu desktop:
 
 ## Công nghệ sử dụng
 
-Backend:
-
-- ASP.NET Core
+- Winform(C#)
 - Socket
 - Redis
-
-Desktop:
-
-- Winform(C#)
 
 Database:
 

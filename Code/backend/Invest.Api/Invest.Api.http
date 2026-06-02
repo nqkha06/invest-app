@@ -1,6 +1,0 @@
-@Invest.Api_HostAddress = http://localhost:5108
-
-GET {{Invest.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
