@@ -38,6 +38,5 @@ public class User
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; }
 
-    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public virtual ICollection<UserWatchlist> Watchlists { get; set; } = new List<UserWatchlist>();
 }

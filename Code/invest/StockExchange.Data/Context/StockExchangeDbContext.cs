@@ -11,7 +11,6 @@ public class StockExchangeDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Stock> Stocks => Set<Stock>();
     public DbSet<StockSimulation> StockSimulations => Set<StockSimulation>();
     public DbSet<StockPriceMinute> StockPricesMinute => Set<StockPriceMinute>();

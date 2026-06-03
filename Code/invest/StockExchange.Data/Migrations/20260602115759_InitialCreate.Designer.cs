@@ -20,52 +20,6 @@ namespace StockExchange.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
 
-            modelBuilder.Entity("StockExchange.Shared.Models.RefreshToken", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<DateTime>("ExpiredAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("expired_at");
-
-                    b.Property<bool>("IsUsed")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_used");
-
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("TEXT")
-                        .HasColumnName("revoked_at");
-
-                    b.Property<string>("Token")
-                        .IsRequired()
-                        .HasColumnType("TEXT")
-                        .HasColumnName("token");
-
-                    b.Property<long>("UserId")
-                        .HasColumnType("INTEGER")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Token")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("refresh_tokens", (string)null);
-                });
-
             modelBuilder.Entity("StockExchange.Shared.Models.Stock", b =>
                 {
                     b.Property<long>("Id")
@@ -363,17 +317,6 @@ namespace StockExchange.Data.Migrations
                     b.ToTable("user_watchlists", (string)null);
                 });
 
-            modelBuilder.Entity("StockExchange.Shared.Models.RefreshToken", b =>
-                {
-                    b.HasOne("StockExchange.Shared.Models.User", "User")
-                        .WithMany("RefreshTokens")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("StockExchange.Shared.Models.StockPriceDay", b =>
                 {
                     b.HasOne("StockExchange.Shared.Models.Stock", "Stock")
@@ -439,8 +382,6 @@ namespace StockExchange.Data.Migrations
 
             modelBuilder.Entity("StockExchange.Shared.Models.User", b =>
                 {
-                    b.Navigation("RefreshTokens");
-
                     b.Navigation("Watchlists");
                 });
 #pragma warning restore 612, 618
