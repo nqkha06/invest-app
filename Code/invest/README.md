@@ -38,6 +38,14 @@ Build toàn bộ solution:
 dotnet build
 ```
 
+## Database
+
+Migration:
+
+```powershell
+dotnet ef database update --project .\StockExchange.Data\StockExchange.Data.csproj --startup-project .\StockExchange.Server\StockExchange.Server.csproj
+```
+
 ## Chạy ứng dụng
 
 Chạy server:
