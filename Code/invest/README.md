@@ -43,7 +43,7 @@ dotnet build
 Migration:
 
 ```powershell
-dotnet ef database update --project .\StockExchange.Data\StockExchange.Data.csproj --startup-project .\StockExchange.Server\StockExchange.Server.csproj
+dotnet ef database update --project .\StockExchange.Data\StockExchange.Data.csproj --startup-project .\StockExchange.Data\StockExchange.Data.csproj
 ```
 
 ## Chạy ứng dụng
