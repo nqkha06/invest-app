@@ -8,30 +8,29 @@ public static class UserSeeder
 {
     public static async Task SeedAsync(StockExchangeDbContext context)
     {
-        if (await context.Users.AnyAsync())
-            return; // Đã có dữ liệu thì bỏ qua
-
-        // Lưu ý: Trong thực tế hãy dùng thư viện băm mật khẩu như BCrypt. 
-        // Đây là chuỗi hash giả định cho mật khẩu "123456" để phục vụ Demo.
-        var defaultPasswordHash = "AQAAAAEAACcQAAAAE... (thay bằng hash thật nếu có hàm tạo hash, tạm dùng 1 chuỗi ngẫu nhiên hoặc mã hóa đơn giản)";
+        const string defaultPassword = "123456";
+        var defaultPasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword);
+        var existingUsers = await context.Users
+            .Where(user => user.Username == "admin" || user.Username == "demo_user")
+            .ToDictionaryAsync(user => user.Username);
 
         var users = new List<User>
         {
-            new User
+            new()
             {
                 Username = "admin",
                 Email = "admin@investapp.local",
-                PasswordHash = "123456", // Hãy hash trước khi lưu ở production
+                PasswordHash = defaultPasswordHash,
                 Role = "Admin",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             },
-            new User
+            new()
             {
                 Username = "demo_user",
                 Email = "user@investapp.local",
-                PasswordHash = "123456", // Hãy hash trước khi lưu ở production
+                PasswordHash = defaultPasswordHash,
                 Role = "User",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
@@ -39,6 +38,20 @@ public static class UserSeeder
             }
         };
 
-        await context.Users.AddRangeAsync(users);
+        foreach (var user in users)
+        {
+            if (!existingUsers.TryGetValue(user.Username, out var existingUser))
+            {
+                await context.Users.AddAsync(user);
+                continue;
+            }
+
+            // Upgrade databases created by the old seeder, which stored this demo password as plain text.
+            if (existingUser.PasswordHash == defaultPassword)
+            {
+                existingUser.PasswordHash = defaultPasswordHash;
+                existingUser.UpdatedAt = DateTime.UtcNow;
+            }
+        }
     }
 }

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StockExchange.Server.Services;
 
-public class StockService : IStockService
+public class StockService
 {
     private readonly StockExchangeDbContext _context;
 

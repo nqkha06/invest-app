@@ -1,46 +1,108 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using StockExchange.Data.Context;
+using StockExchange.Data.Repositories.Implementations;
+using StockExchange.Data.Repositories.Interfaces;
 using StockExchange.Data.Seed;
+using StockExchange.Server.Services;
+using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Server;
 
 internal static class Program
 {
-    private static async Task Main()
+    private static async Task<int> Main()
     {
         Console.Title = "Stock Exchange Server";
         Console.WriteLine("Starting Stock Exchange Server...");
 
-        // 1. Thiết lập Dependency Injection và DbContext
         var services = new ServiceCollection();
-        
-        // Cấu hình dùng SQLite
         services.AddDbContext<StockExchangeDbContext>(options =>
             options.UseSqlite("Data Source=stock_exchange.db"));
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<AuthService>();
+        services.AddScoped<StockService>();
+        services.AddScoped<WatchlistService>();
 
-        var serviceProvider = services.BuildServiceProvider();
+        await using var serviceProvider = services.BuildServiceProvider();
 
-        // 2. Chạy Seeder để tự động tạo Database và nạp dữ liệu mẫu
-        using (var scope = serviceProvider.CreateScope())
+        try
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<StockExchangeDbContext>();
-            try
-            {
-                Console.WriteLine("Applying migrations and seeding data...");
-                // Hàm này sẽ tạo file stock_exchange.db nếu chưa có
-                await DatabaseSeeder.SeedAllAsync(dbContext);
-                
-                Console.WriteLine("Database setup completed successfully.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error occurred while seeding the database: {ex.Message}");
-            }
+            await SeedDatabaseAsync(serviceProvider);
+            await VerifyServicesAsync(serviceProvider);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Server startup failed: {ex.Message}");
+            return 1;
         }
 
         Console.WriteLine("Stock Exchange Server is running.");
-        Console.WriteLine("Press Enter to stop...");
-        Console.ReadLine();
+        Console.WriteLine("Press Ctrl+C to stop.");
+
+        using var shutdown = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            shutdown.Cancel();
+        };
+
+        try
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, shutdown.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Stock Exchange Server stopped.");
+        }
+
+        return 0;
+    }
+
+    private static async Task SeedDatabaseAsync(IServiceProvider serviceProvider)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<StockExchangeDbContext>();
+
+        Console.WriteLine("Applying migrations and seeding data...");
+        await DatabaseSeeder.SeedAllAsync(dbContext);
+        Console.WriteLine("Database setup completed successfully.");
+    }
+
+    private static async Task VerifyServicesAsync(IServiceProvider serviceProvider)
+    {
+        await using var scope = serviceProvider.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<StockExchangeDbContext>();
+
+        var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
+        var login = await authService.ValidateLoginAsync(new LoginRequestDto
+        {
+            UsernameOrEmail = "admin",
+            Password = "123456"
+        });
+        if (!login.Success)
+        {
+            throw new InvalidOperationException("AuthService rejected the seeded admin account.");
+        }
+
+        var stocks = await scope.ServiceProvider
+            .GetRequiredService<StockService>()
+            .GetAllStocksAsync();
+        var stockCount = stocks.Count();
+        if (stockCount == 0)
+        {
+            throw new InvalidOperationException("StockService returned no seeded stocks.");
+        }
+
+        var watchlist = await scope.ServiceProvider
+            .GetRequiredService<WatchlistService>()
+            .GetWatchlistAsync(login.UserId);
+        var userCount = await dbContext.Users.CountAsync();
+        var simulationCount = await dbContext.StockSimulations.CountAsync();
+
+        Console.WriteLine($"[OK] AuthService: seeded admin login works.");
+        Console.WriteLine($"[OK] StockService: {stockCount} stocks available.");
+        Console.WriteLine($"[OK] WatchlistService: {watchlist.Count} stocks in admin watchlist.");
+        Console.WriteLine($"[OK] Seeds: {userCount} users, {stockCount} stocks, {simulationCount} simulations.");
     }
 }
