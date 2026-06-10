@@ -5,6 +5,8 @@ using StockExchange.Data.Repositories.Implementations;
 using StockExchange.Data.Repositories.Interfaces;
 using StockExchange.Data.Seed;
 using StockExchange.Server.Services;
+using StockExchange.Server.Handlers;
+using StockExchange.Server.Network;
 using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Server;
@@ -21,8 +23,12 @@ internal static class Program
             options.UseSqlite("Data Source=stock_exchange.db"));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<AuthService>();
+        services.AddScoped<AuthMessageHandler>();
+        services.AddScoped<MessageDispatcher>();
         services.AddScoped<StockService>();
         services.AddScoped<WatchlistService>();
+        services.AddSingleton<ClientManager>();
+        services.AddSingleton<TcpServer>();
 
         await using var serviceProvider = services.BuildServiceProvider();
 
@@ -49,7 +55,7 @@ internal static class Program
 
         try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan, shutdown.Token);
+            await serviceProvider.GetRequiredService<TcpServer>().RunAsync(shutdown.Token);
         }
         catch (OperationCanceledException)
         {

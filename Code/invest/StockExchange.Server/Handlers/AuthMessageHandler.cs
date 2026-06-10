@@ -18,4 +18,22 @@ public class AuthMessageHandler
     {
         return _authService.ValidateLoginAsync(request, cancellationToken);
     }
+
+    public Task<LoginResponseDto> HandleRegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default)
+    {
+        return _authService.RegisterAsync(request, cancellationToken);
+    }
+
+    public Task<UserProfileDto> HandleGetProfileAsync(long userId, CancellationToken cancellationToken = default)
+    {
+        return _authService.GetProfileAsync(userId, cancellationToken);
+    }
+
+    public Task<UserProfileDto> HandleUpdateProfileAsync(
+        long userId,
+        UpdateProfileRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _authService.UpdateProfileAsync(userId, request, cancellationToken);
+    }
 }
