@@ -2,6 +2,7 @@ using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
+using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -164,7 +165,7 @@ public partial class MainForm : Form
             WrapContents = false,
             Padding = new Padding(AppTheme.SpaceLg)
         };
-        summaryFlow.Controls.Add(new Label
+        var avatar = new Label
         {
             Text = _username[..1].ToUpperInvariant(),
             AutoSize = false,
@@ -174,13 +175,17 @@ public partial class MainForm : Form
             ForeColor = AppTheme.Primary,
             Font = AppTheme.CreateFont(36F, FontStyle.Bold),
             Margin = new Padding(48, 15, 0, 18)
-        });
-        summaryFlow.Controls.Add(AppTheme.CreateLabel(_username, 16F, FontStyle.Bold));
+        };
+        var summaryName = AppTheme.CreateLabel(_username, 16F, FontStyle.Bold);
+        var memberSince = AppTheme.CreateLabel("Đang tải thông tin...", 9F, FontStyle.Regular, AppTheme.Muted);
+        var status = AppTheme.CreateLabel("Trạng thái: Active", 10F, FontStyle.Regular, AppTheme.Success);
+        summaryFlow.Controls.Add(avatar);
+        summaryFlow.Controls.Add(summaryName);
         summaryFlow.Controls.Add(AppTheme.CreateLabel(_isAdmin ? "Administrator" : "Member", 10F, FontStyle.Bold, AppTheme.Primary));
-        summaryFlow.Controls.Add(AppTheme.CreateLabel("Thành viên từ 2026", 9F, FontStyle.Regular, AppTheme.Muted));
+        summaryFlow.Controls.Add(memberSince);
         summaryFlow.Controls.Add(new Panel { Width = 1, Height = 20 });
         summaryFlow.Controls.Add(AppTheme.CreateLabel($"Watchlist: {MockData.Watchlist.Count} mã", 10F, FontStyle.Regular));
-        summaryFlow.Controls.Add(AppTheme.CreateLabel("Trạng thái: Active", 10F, FontStyle.Regular, AppTheme.Success));
+        summaryFlow.Controls.Add(status);
         summary.Controls.Add(summaryFlow);
         page.Controls.Add(summary, 0, 0);
 
@@ -197,20 +202,81 @@ public partial class MainForm : Form
         form.Controls.Add(AppTheme.CreateLabel("Cập nhật thông tin cơ bản của tài khoản.", 9.5F, FontStyle.Regular, AppTheme.Muted));
         form.Controls.Add(new Panel { Width = 1, Height = 14 });
         var username = AddTextField(form, "Tên đăng nhập", _username);
-        var email = AddTextField(form, "Email", $"{_username}@example.com");
-        var displayName = AddTextField(form, "Tên hiển thị", "Ngô Quốc Kha");
-        var phone = AddTextField(form, "Số điện thoại", "0900 000 000");
+        var email = AddTextField(form, "Email", _profile.Email);
         var save = AppTheme.CreateButton("Lưu thay đổi");
         save.Width = 360;
-        save.Click += (_, _) => AppTheme.ShowTemplateNotice(this, "Cập nhật hồ sơ");
+        save.Click += async (_, _) =>
+        {
+            save.Enabled = false;
+            try
+            {
+                _profile = await _authService.UpdateProfileAsync(username.Text.Trim(), email.Text.Trim());
+                ApplyProfile(_profile, username, email, avatar, summaryName, memberSince, status);
+                MessageBox.Show(this, "Cập nhật hồ sơ thành công.", "Thành công",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Không thể cập nhật hồ sơ",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                save.Enabled = true;
+            }
+        };
         form.Controls.Add(save);
-        var password = AppTheme.CreateButton("Đổi mật khẩu", false);
-        password.Width = 360;
-        password.Click += (_, _) => AppTheme.ShowTemplateNotice(this, "Đổi mật khẩu");
-        form.Controls.Add(password);
         editor.Controls.Add(form);
         page.Controls.Add(editor, 1, 0);
+        _ = LoadProfileAsync(username, email, avatar, summaryName, memberSince, status);
         return page;
+    }
+
+    private async Task LoadProfileAsync(
+        TextBox username,
+        TextBox email,
+        Label avatar,
+        Label summaryName,
+        Label memberSince,
+        Label status)
+    {
+        try
+        {
+            _profile = await _authService.GetProfileAsync();
+            if (!IsDisposed && !username.IsDisposed)
+            {
+                ApplyProfile(_profile, username, email, avatar, summaryName, memberSince, status);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !username.IsDisposed)
+            {
+                MessageBox.Show(this, ex.Message, "Không thể tải hồ sơ",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+    }
+
+    private void ApplyProfile(
+        UserProfileDto profile,
+        TextBox username,
+        TextBox email,
+        Label avatar,
+        Label summaryName,
+        Label memberSince,
+        Label status)
+    {
+        _username = profile.Username;
+        username.Text = profile.Username;
+        email.Text = profile.Email;
+        avatar.Text = profile.Username[..1].ToUpperInvariant();
+        summaryName.Text = profile.Username;
+        memberSince.Text = $"Thành viên từ {profile.CreatedAt:yyyy}";
+        status.Text = profile.IsActive ? "Trạng thái: Active" : "Trạng thái: Inactive";
+        status.ForeColor = profile.IsActive ? AppTheme.Success : AppTheme.Danger;
+        _accountName.Text = profile.Username;
+        _accountAvatar.Text = avatar.Text;
     }
 
 }

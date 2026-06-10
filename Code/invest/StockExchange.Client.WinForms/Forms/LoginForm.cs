@@ -1,14 +1,18 @@
 using StockExchange.Client.WinForms.Helpers;
+using StockExchange.Client.WinForms.Services;
 
 namespace StockExchange.Client.WinForms.Forms;
 
 public class LoginForm : Form
 {
+    private readonly ClientConnectionService _connection = new();
+    private readonly AuthClientService _authService;
     private readonly TextBox _username = AppTheme.CreateTextBox("Tên đăng nhập hoặc email");
     private readonly TextBox _password = AppTheme.CreateTextBox("Mật khẩu");
 
     public LoginForm()
     {
+        _authService = new AuthClientService(_connection);
         Text = "Invest App - Đăng nhập";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1050, 680);
@@ -179,7 +183,7 @@ public class LoginForm : Form
 
         var login = AppTheme.CreateButton("Đăng nhập");
         login.Width = 330;
-        login.Click += (_, _) => OpenApplication();
+        login.Click += async (_, _) => await OpenApplicationAsync(login);
         form.Controls.Add(login);
         form.Controls.Add(AppTheme.CreateLabel("Dùng username “admin” để xem giao diện Admin.", 9F, FontStyle.Italic, AppTheme.Muted));
 
@@ -191,7 +195,7 @@ public class LoginForm : Form
             Font = AppTheme.CreateFont(14F, FontStyle.Bold),
             Margin = new Padding(0, 18, 0, 0)
         };
-        register.Click += (_, _) => new RegisterForm().ShowDialog(this);
+        register.Click += (_, _) => new RegisterForm(_authService).ShowDialog(this);
         form.Controls.Add(register);
         card.Controls.Add(form);
         AcceptButton = login;
@@ -199,7 +203,7 @@ public class LoginForm : Form
         return host;
     }
 
-    private void OpenApplication()
+    private async Task OpenApplicationAsync(Button loginButton)
     {
         if (string.IsNullOrWhiteSpace(_username.Text) || string.IsNullOrWhiteSpace(_password.Text))
         {
@@ -208,11 +212,40 @@ public class LoginForm : Form
             return;
         }
 
-        var isAdmin = _username.Text.Trim().Equals("admin", StringComparison.OrdinalIgnoreCase);
-        Hide();
-        using var main = new MainForm(_username.Text.Trim(), isAdmin);
-        main.ShowDialog();
-        Show();
+        loginButton.Enabled = false;
+        try
+        {
+            var response = await _authService.LoginAsync(_username.Text.Trim(), _password.Text);
+            if (!response.Success)
+            {
+                MessageBox.Show(this, response.Message, "Đăng nhập thất bại",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            Hide();
+            using var main = new MainForm(response, _authService);
+            main.ShowDialog();
+            Show();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Lỗi kết nối",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            loginButton.Enabled = true;
+        }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _connection.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        base.Dispose(disposing);
     }
 
     private static Control Spacer(int height) => new Panel { Width = 1, Height = height };

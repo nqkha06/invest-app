@@ -1,11 +1,15 @@
 using StockExchange.Client.WinForms.Helpers;
+using StockExchange.Client.WinForms.Services;
 
 namespace StockExchange.Client.WinForms.Forms;
 
 public class RegisterForm : Form
 {
-    public RegisterForm()
+    private readonly AuthClientService _authService;
+
+    public RegisterForm(AuthClientService authService)
     {
+        _authService = authService;
         Text = "Invest App - Đăng ký";
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(620, 650);
@@ -74,16 +78,43 @@ public class RegisterForm : Form
         };
         var submit = AppTheme.CreateButton("Tạo tài khoản");
         submit.Width = 160;
-        submit.Click += (_, _) =>
+        submit.Click += async (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(username.Text) || string.IsNullOrWhiteSpace(email.Text)
                 || string.IsNullOrWhiteSpace(password.Text) || password.Text != confirm.Text || !terms.Checked)
             {
-                MessageBox.Show(this, "Vui lòng kiểm tra lại thông tin đăng ký.", "Template validation",
+                MessageBox.Show(this, "Vui lòng kiểm tra lại thông tin đăng ký.", "Thông tin chưa hợp lệ",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            AppTheme.ShowTemplateNotice(this, "Đăng ký tài khoản");
+
+            submit.Enabled = false;
+            try
+            {
+                var response = await _authService.RegisterAsync(
+                    username.Text.Trim(),
+                    email.Text.Trim(),
+                    password.Text);
+                if (!response.Success)
+                {
+                    MessageBox.Show(this, response.Message, "Đăng ký thất bại",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                MessageBox.Show(this, "Đăng ký tài khoản thành công. Bạn có thể đăng nhập ngay.",
+                    "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Lỗi kết nối",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                submit.Enabled = true;
+            }
         };
         var back = AppTheme.CreateButton("Quay lại", false);
         back.Width = 120;

@@ -39,7 +39,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Server startup failed: {ex.Message}");
+            Console.Error.WriteLine($"Server startup failed: {ex}");
             return 1;
         }
 

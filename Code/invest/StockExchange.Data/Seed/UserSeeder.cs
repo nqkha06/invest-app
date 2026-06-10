@@ -11,8 +11,12 @@ public static class UserSeeder
         const string defaultPassword = "123456";
         var defaultPasswordHash = BCrypt.Net.BCrypt.HashPassword(defaultPassword);
         var existingUsers = await context.Users
-            .Where(user => user.Username == "admin" || user.Username == "demo_user")
-            .ToDictionaryAsync(user => user.Username);
+            .Where(user =>
+                user.Username == "admin"
+                || user.Username == "demo_user"
+                || user.Email == "admin@investapp.local"
+                || user.Email == "user@investapp.local")
+            .ToListAsync();
 
         var users = new List<User>
         {
@@ -40,7 +44,11 @@ public static class UserSeeder
 
         foreach (var user in users)
         {
-            if (!existingUsers.TryGetValue(user.Username, out var existingUser))
+            var existingUser = existingUsers.FirstOrDefault(existing =>
+                string.Equals(existing.Username, user.Username, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(existing.Email, user.Email, StringComparison.OrdinalIgnoreCase));
+
+            if (existingUser is null)
             {
                 await context.Users.AddAsync(user);
                 continue;

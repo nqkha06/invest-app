@@ -2,24 +2,39 @@ using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Services;
+using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Client.WinForms.Forms;
 
 public partial class MainForm : Form
 {
-    private readonly string _username;
+    private string _username;
     private readonly bool _isAdmin;
+    private readonly AuthClientService _authService;
+    private UserProfileDto _profile;
+    private readonly Label _accountName = new();
+    private readonly Label _accountAvatar = new();
     private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = AppTheme.Background, Padding = new Padding(AppTheme.SpaceXl) };
     private readonly Label _pageTitle = AppTheme.CreateLabel("", 18F, FontStyle.Bold);
     private readonly Dictionary<string, Button> _navButtons = [];
     private StockRow _selectedStock = MockData.Stocks[0];
 
-    public MainForm(string username, bool isAdmin)
+    public MainForm(LoginResponseDto login, AuthClientService authService)
     {
-        _username = username;
-        _isAdmin = isAdmin;
+        _username = login.Username;
+        _isAdmin = login.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        _authService = authService;
+        _profile = new UserProfileDto
+        {
+            UserId = login.UserId,
+            Username = login.Username,
+            Email = login.Email,
+            Role = login.Role,
+            IsActive = true
+        };
 
-        Text = $"Invest App - {(isAdmin ? "Admin" : "Member")}";
+        Text = $"Invest App - {(_isAdmin ? "Admin" : "Member")}";
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(900, 620);
@@ -96,27 +111,23 @@ public partial class MainForm : Form
         account.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
         account.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 52));
         account.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        account.Controls.Add(new Label
-        {
-            Text = _username[..1].ToUpperInvariant(),
-            AutoSize = false,
-            Size = new Size(42, 42),
-            TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = AppTheme.Primary,
-            ForeColor = Color.White,
-            Font = AppTheme.CreateFont(17F, FontStyle.Bold),
-            Anchor = AnchorStyles.Top | AnchorStyles.Left
-        }, 0, 0);
+        _accountAvatar.Text = _username[..1].ToUpperInvariant();
+        _accountAvatar.AutoSize = false;
+        _accountAvatar.Size = new Size(42, 42);
+        _accountAvatar.TextAlign = ContentAlignment.MiddleCenter;
+        _accountAvatar.BackColor = AppTheme.Primary;
+        _accountAvatar.ForeColor = Color.White;
+        _accountAvatar.Font = AppTheme.CreateFont(17F, FontStyle.Bold);
+        _accountAvatar.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        account.Controls.Add(_accountAvatar, 0, 0);
         account.SetRowSpan(account.Controls[^1], 3);
-        account.Controls.Add(new Label
-        {
-            Text = _username,
-            AutoSize = false,
-            Dock = DockStyle.Fill,
-            AutoEllipsis = true,
-            ForeColor = Color.White,
-            Font = AppTheme.CreateFont(15F, FontStyle.Bold)
-        }, 1, 0);
+        _accountName.Text = _username;
+        _accountName.AutoSize = false;
+        _accountName.Dock = DockStyle.Fill;
+        _accountName.AutoEllipsis = true;
+        _accountName.ForeColor = Color.White;
+        _accountName.Font = AppTheme.CreateFont(15F, FontStyle.Bold);
+        account.Controls.Add(_accountName, 1, 0);
         account.Controls.Add(new Label
         {
             Text = _isAdmin ? "Administrator" : "Member",
@@ -183,10 +194,10 @@ public partial class MainForm : Form
         header.Controls.Add(_pageTitle, 0, 0);
         header.Controls.Add(new Label
         {
-            Text = "Dữ liệu minh họa • Chưa kết nối server",
+            Text = "Auth/Profile • Đã kết nối server",
             AutoSize = true,
             Anchor = AnchorStyles.Right,
-            ForeColor = AppTheme.Warning,
+            ForeColor = AppTheme.Success,
             Font = AppTheme.CreateFont(13F, FontStyle.Bold),
             Margin = Padding.Empty
         }, 1, 0);
