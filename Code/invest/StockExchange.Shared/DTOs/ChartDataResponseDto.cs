@@ -7,7 +7,7 @@ namespace StockExchange.Shared.DTOs
     {
         public string? StockCode { get; set; }
         public string? TimeFrame { get; set; } // "1D", "1W", "1M", "1Y"...
-        public List<ChartPointDto>? DataPoints { get; set; }
+        public List<ChartPointDto> DataPoints { get; set; } = new List<ChartPointDto>();
     }
 
     public class ChartPointDto
