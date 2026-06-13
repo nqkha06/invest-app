@@ -22,15 +22,16 @@ public partial class MainForm : Form
 
     public MainForm(LoginResponseDto login, AuthClientService authService)
     {
-        _username = login.Username;
-        _isAdmin = login.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        _username = login.Username ?? "User"; 
+        _isAdmin = string.Equals(login.Role, "Admin", StringComparison.OrdinalIgnoreCase);
         _authService = authService;
         _profile = new UserProfileDto
         {
             UserId = login.UserId,
-            Username = login.Username,
-            Email = login.Email,
-            Role = login.Role,
+            // Đảm bảo không có trường nào null ở đây
+            Username = login.Username ?? "User",
+            Email = login.Email ?? "no-email@example.com", // Đảm bảo Email không null
+            Role = login.Role ?? "Member",
             IsActive = true
         };
 
@@ -111,7 +112,8 @@ public partial class MainForm : Form
         account.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
         account.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 52));
         account.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        _accountAvatar.Text = _username[..1].ToUpperInvariant();
+        _accountAvatar.Text = !string.IsNullOrEmpty(_username) ? _username[..1].ToUpperInvariant() : "?";
+        
         _accountAvatar.AutoSize = false;
         _accountAvatar.Size = new Size(42, 42);
         _accountAvatar.TextAlign = ContentAlignment.MiddleCenter;

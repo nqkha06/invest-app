@@ -1,0 +1,29 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using StockExchange.Shared.Models;
+using StockExchange.Shared.DTOs;
+using StockExchange.Server.Services;
+
+namespace StockExchange.Server.Handlers;
+
+public class StockMessageHandler
+{
+    private readonly StockService _stockService;
+
+    public StockMessageHandler(StockService stockService)
+    {
+        _stockService = stockService;
+    }
+
+    public async Task<IEnumerable<Stock>> HandleGetAllStocksAsync()
+    {
+        // Gọi Service lấy toàn bộ cổ phiếu
+        return await _stockService.GetAllStocksAsync();
+    }
+
+    public async Task<IEnumerable<Stock>> HandleSearchStocksAsync(SearchStockRequestDto request)
+    {
+        // Gọi Service tìm kiếm cổ phiếu theo keyword
+        return await _stockService.SearchStocksAsync(request.Keyword);
+    }
+}

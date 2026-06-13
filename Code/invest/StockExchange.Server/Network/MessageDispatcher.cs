@@ -8,10 +8,11 @@ namespace StockExchange.Server.Network;
 public class MessageDispatcher
 {
     private readonly AuthMessageHandler _authHandler;
-
-    public MessageDispatcher(AuthMessageHandler authHandler)
+    private readonly StockMessageHandler _stockHandler; // THÊM DÒNG NÀY
+    public MessageDispatcher(AuthMessageHandler authHandler,StockMessageHandler stockHandler)
     {
         _authHandler = authHandler;
+        _stockHandler = stockHandler;
     }
 
     public async Task<AppMessage> DispatchAsync(
@@ -27,9 +28,11 @@ public class MessageDispatcher
                 MessageType.Register => await RegisterAsync(session, message, cancellationToken),
                 MessageType.GetProfile => await GetProfileAsync(session, message, cancellationToken),
                 MessageType.UpdateProfile => await UpdateProfileAsync(session, message, cancellationToken),
+                MessageType.GetAllStocks => await GetAllStocksAsync(message),
+                MessageType.SearchStocks => await SearchStocksAsync(message),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
-        }
+        }   
         catch (JsonException)
         {
             return AppMessage.Failure(message.Type, message.RequestId, "Request payload is invalid.");
@@ -53,6 +56,18 @@ public class MessageDispatcher
         var request = Deserialize<LoginRequestDto>(message);
         var response = await _authHandler.HandleLoginAsync(request, cancellationToken);
         session.UserId = response.Success ? response.UserId : null;
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+   private async Task<AppMessage> GetAllStocksAsync(AppMessage message)
+    {
+        var response = await _stockHandler.HandleGetAllStocksAsync();
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> SearchStocksAsync(AppMessage message)
+    {
+        var request = Deserialize<SearchStockRequestDto>(message);
+        var response = await _stockHandler.HandleSearchStocksAsync(request);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 

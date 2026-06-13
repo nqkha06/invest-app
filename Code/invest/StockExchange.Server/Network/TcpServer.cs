@@ -52,10 +52,11 @@ public class TcpServer
         Console.WriteLine($"Client connected. Active clients: {_clientManager.Count}.");
 
         await using var scope = _scopeFactory.CreateAsyncScope();
-        var dispatcher = scope.ServiceProvider.GetRequiredService<MessageDispatcher>();
+        
 
         try
         {
+            var dispatcher = scope.ServiceProvider.GetRequiredService<MessageDispatcher>();
             while (!cancellationToken.IsCancellationRequested)
             {
                 var line = await session.Reader.ReadLineAsync(cancellationToken);

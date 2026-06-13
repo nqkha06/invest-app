@@ -266,11 +266,11 @@ public partial class MainForm : Form
         Label summaryName,
         Label memberSince,
         Label status)
-    {
+    {   
         _username = profile.Username;
         username.Text = profile.Username;
         email.Text = profile.Email;
-        avatar.Text = profile.Username[..1].ToUpperInvariant();
+        avatar.Text = !string.IsNullOrEmpty(profile.Username) ? profile.Username[..1].ToUpperInvariant() : "?";
         summaryName.Text = profile.Username;
         memberSince.Text = $"Thành viên từ {profile.CreatedAt:yyyy}";
         status.Text = profile.IsActive ? "Trạng thái: Active" : "Trạng thái: Inactive";

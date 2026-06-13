@@ -24,6 +24,8 @@ internal static class Program
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<AuthService>();
         services.AddScoped<AuthMessageHandler>();
+        
+        services.AddScoped<StockMessageHandler>(); // dùng để nhận diện StockMessageHandler trong MessageDispatcher để sử dụng MessageDispatcher
         services.AddScoped<MessageDispatcher>();
         services.AddScoped<StockService>();
         services.AddScoped<WatchlistService>();

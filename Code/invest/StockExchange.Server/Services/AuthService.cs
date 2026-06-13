@@ -188,9 +188,9 @@ public class AuthService
 	private static UserProfileDto ToProfile(User user) => new()
 	{
 		UserId = user.Id,
-		Username = user.Username,
-		Email = user.Email,
-		Role = user.Role,
+		Username = user.Username ?? "User", // Đảm bảo không null
+		Email = user.Email ?? "",           // Đảm bảo không null
+		Role = user.Role ?? "Member",       // Đảm bảo không null
 		IsActive = user.IsActive,
 		CreatedAt = user.CreatedAt
 	};
