@@ -7,9 +7,11 @@ public class StockEditorForm : Form
 {
     public StockRow Result { get; private set; } = new();
 
-    public StockEditorForm()
+    public StockEditorForm(StockRow? stock = null)
     {
-        Text = "Thêm cổ phiếu";
+        var isEditing = stock is not null;
+
+        Text = isEditing ? "Chỉnh sửa cổ phiếu" : "Thêm cổ phiếu";
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(560, 570);
         MinimumSize = new Size(520, 540);
@@ -53,11 +55,16 @@ public class StockEditorForm : Form
         var active = new CheckBox
         {
             Text = "Đang hoạt động",
-            Checked = true,
+            Checked = stock?.Active ?? true,
             AutoSize = true,
             ForeColor = AppTheme.Text,
             Anchor = AnchorStyles.Left
         };
+
+        symbol.Text = stock?.Symbol ?? string.Empty;
+        company.Text = stock?.Company ?? string.Empty;
+        sector.Text = stock?.Sector ?? string.Empty;
+        price.Value = Math.Clamp(stock?.Price ?? 0m, price.Minimum, price.Maximum);
 
         AppTheme.AddField(fields, "Mã cổ phiếu", symbol);
         AppTheme.AddField(fields, "Tên doanh nghiệp", company);
@@ -74,25 +81,27 @@ public class StockEditorForm : Form
             WrapContents = false,
             Margin = new Padding(0, AppTheme.SpaceMd, 0, 0)
         };
-        var save = AppTheme.CreateButton("Lưu cổ phiếu");
+        var save = AppTheme.CreateButton(isEditing ? "Lưu thay đổi" : "Lưu cổ phiếu");
         save.Width = 150;
         save.Click += (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(symbol.Text) || string.IsNullOrWhiteSpace(company.Text))
             {
-                MessageBox.Show(this, "Mã và tên doanh nghiệp là bắt buộc.", "Template validation",
+                MessageBox.Show(this, "Mã và tên doanh nghiệp là bắt buộc.", "Dữ liệu chưa hợp lệ",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+
+            var normalizedSymbol = symbol.Text.Trim().ToUpperInvariant();
             Result = new StockRow
             {
-                Id = MockData.Stocks.Count == 0 ? 1 : MockData.Stocks.Max(stock => stock.Id) + 1,
-                Symbol = symbol.Text.Trim().ToUpperInvariant(),
+                Id = stock?.Id ?? 0,
+                Symbol = normalizedSymbol,
                 Company = company.Text.Trim(),
                 Sector = sector.Text.Trim(),
                 Price = price.Value,
-                ChangePercent = 0,
-                Volume = 0,
+                ChangePercent = stock?.ChangePercent ?? 0,
+                Volume = stock?.Volume ?? 0,
                 Active = active.Checked
             };
             DialogResult = DialogResult.OK;

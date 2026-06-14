@@ -26,4 +26,29 @@ public class StockMessageHandler
         // Gọi Service tìm kiếm cổ phiếu theo keyword
         return await _stockService.SearchStocksAsync(request.Keyword);
     }
+
+    public Task<Stock> HandleCreateStockAsync(
+        long userId,
+        StockUpdateDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _stockService.CreateStockAsync(userId, request, cancellationToken);
+    }
+
+    public Task<Stock> HandleUpdateStockAsync(
+        long userId,
+        StockUpdateDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _stockService.UpdateStockAsync(userId, request, cancellationToken);
+    }
+
+    public async Task<bool> HandleDeleteStockAsync(
+        long userId,
+        StockDeleteRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        await _stockService.DeleteStockAsync(userId, request.Id, cancellationToken);
+        return true;
+    }
 }

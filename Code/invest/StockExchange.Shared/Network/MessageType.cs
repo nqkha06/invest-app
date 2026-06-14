@@ -8,5 +8,8 @@ public enum MessageType
     UpdateProfile = 4,
    
     GetAllStocks = 5,
-    SearchStocks = 6
+    SearchStocks = 6,
+    CreateStock = 7,
+    UpdateStock = 8,
+    DeleteStock = 9
 }

@@ -224,7 +224,10 @@ public class LoginForm : Form
             }
 
             Hide();
-            using var main = new MainForm(response, _authService);
+            using var main = new MainForm(
+                response,
+                _authService,
+                new StockClientService(_connection));
             main.ShowDialog();
             Show();
         }

@@ -2,6 +2,8 @@ using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
+using StockExchange.Shared.DTOs;
+using StockExchange.Shared.Models;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -121,28 +123,53 @@ public partial class MainForm : Form
         page.Controls.Add(toolbar, 0, 0);
 
         var grid = AppTheme.CreateGrid();
+        var stocks = new BindingList<StockRow>();
         void Bind(string keyword = "")
         {
-            grid.DataSource = new BindingList<StockRow>(MockData.Stocks
+            grid.DataSource = new BindingList<StockRow>(stocks
                 .Where(stock => string.IsNullOrWhiteSpace(keyword)
                     || stock.Symbol.Contains(keyword, StringComparison.OrdinalIgnoreCase)
                     || stock.Company.Contains(keyword, StringComparison.OrdinalIgnoreCase)
                     || stock.Sector.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 .ToList());
         }
-        Bind();
+
+        async Task LoadStocksAsync()
+        {
+            try
+            {
+                var databaseStocks = await _stockService.GetAllAsync();
+                stocks = new BindingList<StockRow>(databaseStocks.Select(ToStockRow).ToList());
+                Bind(search.Text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Không thể tải cổ phiếu",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         search.TextChanged += (_, _) => Bind(search.Text);
-        add.Click += (_, _) =>
+        add.Click += async (_, _) =>
         {
             using var dialog = new StockEditorForm();
             if (dialog.ShowDialog(this) == DialogResult.OK)
             {
-                MockData.Stocks.Add(dialog.Result);
-                Bind(search.Text);
+                try
+                {
+                    var created = await _stockService.CreateAsync(ToUpdateDto(dialog.Result));
+                    stocks.Add(ToStockRow(created));
+                    Bind(search.Text);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "Không thể thêm cổ phiếu",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         };
 
-        var card = WrapGrid(grid, "Quản lý stock • Dữ liệu local trong phiên");
+        var card = WrapGrid(grid, "Quản lý cổ phiếu");
         var actions = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
@@ -152,25 +179,98 @@ public partial class MainForm : Form
         };
         var delete = AppTheme.CreateButton("Xóa", false);
         delete.ForeColor = AppTheme.Danger;
-        delete.Click += (_, _) =>
+        delete.Click += async (_, _) =>
         {
             if (grid.CurrentRow?.DataBoundItem is not StockRow stock) return;
-            MockData.Stocks.Remove(stock);
-            Bind(search.Text);
+            var confirmation = MessageBox.Show(
+                this,
+                $"Xóa cổ phiếu {stock.Symbol} khỏi database?",
+                "Xác nhận xóa",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (confirmation != DialogResult.Yes) return;
+
+            try
+            {
+                await _stockService.DeleteAsync(stock.Id);
+                stocks.Remove(stocks.First(item => item.Id == stock.Id));
+                Bind(search.Text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Không thể xóa cổ phiếu",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         };
         var edit = AppTheme.CreateButton("Chỉnh sửa");
-        edit.Click += (_, _) =>
+        async Task EditSelectedStockAsync()
         {
-            if (grid.CurrentRow?.DataBoundItem is StockRow stock)
+            if (grid.CurrentRow?.DataBoundItem is not StockRow stock) return;
+
+            using var dialog = new StockEditorForm(stock);
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+            try
             {
-                AppTheme.ShowTemplateNotice(this, $"Chỉnh sửa stock {stock.Symbol}");
+                var updated = await _stockService.UpdateAsync(ToUpdateDto(dialog.Result));
+                ApplyStock(stock, updated);
+                Bind(search.Text);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Không thể cập nhật cổ phiếu",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        edit.Click += async (_, _) => await EditSelectedStockAsync();
+        grid.CellDoubleClick += async (_, eventArgs) =>
+        {
+            if (eventArgs.RowIndex >= 0)
+            {
+                await EditSelectedStockAsync();
             }
         };
         actions.Controls.Add(delete);
         actions.Controls.Add(edit);
         card.Controls.Add(actions);
         page.Controls.Add(card, 0, 1);
+        _ = LoadStocksAsync();
         return page;
+    }
+
+    private static StockRow ToStockRow(Stock stock)
+    {
+        return new StockRow
+        {
+            Id = stock.Id,
+            Symbol = stock.Symbol,
+            Company = stock.CompanyName,
+            Sector = stock.Sector ?? string.Empty,
+            Price = stock.CurrentPrice,
+            Active = stock.IsActive
+        };
+    }
+
+    private static StockUpdateDto ToUpdateDto(StockRow stock)
+    {
+        return new StockUpdateDto
+        {
+            Id = stock.Id,
+            Symbol = stock.Symbol,
+            CompanyName = stock.Company,
+            Sector = stock.Sector,
+            CurrentPrice = stock.Price,
+            IsActive = stock.Active
+        };
+    }
+
+    private static void ApplyStock(StockRow target, Stock source)
+    {
+        target.Symbol = source.Symbol;
+        target.Company = source.CompanyName;
+        target.Sector = source.Sector ?? string.Empty;
+        target.Price = source.CurrentPrice;
+        target.Active = source.IsActive;
     }
 
     private Control BuildSimulationPage()

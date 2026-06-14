@@ -12,6 +12,7 @@ public partial class MainForm : Form
     private string _username;
     private readonly bool _isAdmin;
     private readonly AuthClientService _authService;
+    private readonly StockClientService _stockService;
     private UserProfileDto _profile;
     private readonly Label _accountName = new();
     private readonly Label _accountAvatar = new();
@@ -20,11 +21,15 @@ public partial class MainForm : Form
     private readonly Dictionary<string, Button> _navButtons = [];
     private StockRow _selectedStock = MockData.Stocks[0];
 
-    public MainForm(LoginResponseDto login, AuthClientService authService)
+    public MainForm(
+        LoginResponseDto login,
+        AuthClientService authService,
+        StockClientService stockService)
     {
         _username = login.Username ?? "User"; 
         _isAdmin = string.Equals(login.Role, "Admin", StringComparison.OrdinalIgnoreCase);
         _authService = authService;
+        _stockService = stockService;
         _profile = new UserProfileDto
         {
             UserId = login.UserId,

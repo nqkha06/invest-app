@@ -30,6 +30,9 @@ public class MessageDispatcher
                 MessageType.UpdateProfile => await UpdateProfileAsync(session, message, cancellationToken),
                 MessageType.GetAllStocks => await GetAllStocksAsync(message),
                 MessageType.SearchStocks => await SearchStocksAsync(message),
+                MessageType.CreateStock => await CreateStockAsync(session, message, cancellationToken),
+                MessageType.UpdateStock => await UpdateStockAsync(session, message, cancellationToken),
+                MessageType.DeleteStock => await DeleteStockAsync(session, message, cancellationToken),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
         }   
@@ -68,6 +71,39 @@ public class MessageDispatcher
     {
         var request = Deserialize<SearchStockRequestDto>(message);
         var response = await _stockHandler.HandleSearchStocksAsync(request);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> CreateStockAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var request = Deserialize<StockUpdateDto>(message);
+        var response = await _stockHandler.HandleCreateStockAsync(
+            RequireUser(session), request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> UpdateStockAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var request = Deserialize<StockUpdateDto>(message);
+        var response = await _stockHandler.HandleUpdateStockAsync(
+            RequireUser(session), request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> DeleteStockAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var request = Deserialize<StockDeleteRequestDto>(message);
+        var response = await _stockHandler.HandleDeleteStockAsync(
+            RequireUser(session), request, cancellationToken);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 
