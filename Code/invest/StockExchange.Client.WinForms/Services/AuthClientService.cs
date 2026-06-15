@@ -53,4 +53,32 @@ public class AuthClientService
             new UpdateProfileRequestDto { Username = username, Email = email },
             cancellationToken);
     }
+
+    public Task<List<UserProfileDto>> AdminGetUsersAsync(CancellationToken cancellationToken = default)
+{
+    return _connection.SendAsync<object, List<UserProfileDto>>(
+        MessageType.AdminGetUsers,
+        new { },
+        cancellationToken);
+}
+
+    public Task<UserProfileDto> AdminCreateUserAsync(
+        RegisterRequestDto request,
+        CancellationToken cancellationToken = default)
+{
+    return _connection.SendAsync<RegisterRequestDto, UserProfileDto>(
+        MessageType.AdminCreateUser,
+        request,
+        cancellationToken);
+}
+
+    public Task<UserProfileDto> AdminUpdateUserAsync(
+        UpdateProfileRequestDto request,
+        CancellationToken cancellationToken = default)
+{
+    return _connection.SendAsync<UpdateProfileRequestDto, UserProfileDto>(
+        MessageType.AdminUpdateUser,
+        request,
+        cancellationToken);
+}
 }

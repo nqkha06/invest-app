@@ -2,6 +2,7 @@ using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
+using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -82,33 +83,80 @@ public partial class MainForm : Form
         page.Controls.Add(toolbar, 0, 0);
 
         var grid = AppTheme.CreateGrid();
+        var users = new List<UserProfileDto>();
+
         void Bind(string keyword = "")
         {
-            grid.DataSource = new BindingList<UserRow>(MockData.Users
+            var filtered = users
                 .Where(user => string.IsNullOrWhiteSpace(keyword)
                     || user.Username.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-                    || user.Email.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                .ToList());
+                    || user.Email.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                    || user.Role.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            grid.DataSource = new BindingList<UserProfileDto>(filtered);
         }
-        Bind();
-        search.TextChanged += (_, _) => Bind(search.Text);
-        add.Click += (_, _) =>
+
+        async Task LoadUsersAsync()
         {
-            using var dialog = new UserEditorForm();
-            if (dialog.ShowDialog(this) == DialogResult.OK)
+            try
             {
-                MockData.Users.Add(dialog.Result);
+                users = await _authService.AdminGetUsersAsync();
                 Bind(search.Text);
             }
-        };
-        grid.CellDoubleClick += (_, _) =>
-        {
-            if (grid.CurrentRow?.DataBoundItem is UserRow user)
+            catch (Exception ex)
             {
-                AppTheme.ShowTemplateNotice(this, $"Chỉnh sửa người dùng {user.Username}");
+                MessageBox.Show(this, ex.Message, "Lỗi tải người dùng",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        page.HandleCreated += (_, _) => _ = LoadUsersAsync();
+
+        search.TextChanged += (_, _) => Bind(search.Text);
+
+        add.Click += async (_, _) =>
+        {
+            using var dialog = new UserEditorForm();
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                await _authService.AdminCreateUserAsync(dialog.CreateRequest);
+                await LoadUsersAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Lỗi thêm người dùng",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
-        page.Controls.Add(WrapGrid(grid, "Danh sách người dùng • Double click để chỉnh sửa"), 0, 1);
+
+        grid.CellDoubleClick += async (_, _) =>
+        {
+            if (grid.CurrentRow?.DataBoundItem is not UserProfileDto user)
+                return;
+
+            using var dialog = new UserEditorForm(user);
+
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                await _authService.AdminUpdateUserAsync(dialog.UpdateRequest);
+                await LoadUsersAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Lỗi cập nhật người dùng",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        };
+
+        page.Controls.Add(WrapGrid(grid, "Danh sách người dùng từ server • Double click để chỉnh sửa"), 0, 1);
         return page;
     }
 

@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using StockExchange.Data.Repositories.Interfaces;
 using StockExchange.Shared.DTOs;
 using StockExchange.Shared.Models;
@@ -177,6 +178,126 @@ public class AuthService
 		_unitOfWork.Users.Update(user);
 		await _unitOfWork.SaveChangesAsync(cancellationToken);
 		return ToProfile(user);
+	}
+
+	public async Task<IReadOnlyList<UserProfileDto>> AdminGetUsersAsync(
+		long adminUserId,
+		CancellationToken cancellationToken = default)
+	{
+		await RequireAdminAsync(adminUserId, cancellationToken);
+
+		var users = await _unitOfWork.Users.GetAllAsync(cancellationToken);
+
+		return users
+			.OrderByDescending(user => user.CreatedAt)
+			.Select(ToProfile)
+			.ToList();
+	}
+
+	public async Task<UserProfileDto> AdminCreateUserAsync(
+		long adminUserId,
+		RegisterRequestDto request,
+		CancellationToken cancellationToken = default)
+	{
+		await RequireAdminAsync(adminUserId, cancellationToken);
+
+		var username = request.Username.Trim();
+		var email = request.Email.Trim().ToLowerInvariant();
+		var password = request.Password;
+		var role = NormalizeRole(request.Role);
+
+		if (username.Length < 3 || username.Length > 100)
+			throw new InvalidOperationException("Username must contain between 3 and 100 characters.");
+
+		if (email.Length > 255 || !new EmailAddressAttribute().IsValid(email))
+			throw new InvalidOperationException("Email is invalid.");
+
+		if (password.Length < 6 || password.Length > 255)
+			throw new InvalidOperationException("Password must contain between 6 and 255 characters.");
+
+		if (await _unitOfWork.Users.ExistsByUsernameAsync(username, cancellationToken))
+			throw new InvalidOperationException("Username is already in use.");
+
+		if (await _unitOfWork.Users.ExistsByEmailAsync(email, cancellationToken))
+			throw new InvalidOperationException("Email is already in use.");
+
+		var now = DateTime.UtcNow;
+
+		var user = new User
+		{
+			Username = username,
+			Email = email,
+			PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
+			Role = role,
+			IsActive = request.IsActive,
+			CreatedAt = now,
+			UpdatedAt = now
+		};
+
+		await _unitOfWork.Users.AddAsync(user, cancellationToken);
+		await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+		return ToProfile(user);
+	}
+
+	public async Task<UserProfileDto> AdminUpdateUserAsync(
+		long adminUserId,
+		UpdateProfileRequestDto request,
+		CancellationToken cancellationToken = default)
+	{
+		await RequireAdminAsync(adminUserId, cancellationToken);
+
+		var user = await _unitOfWork.Users.GetByIdAsync(request.UserId, cancellationToken)
+			?? throw new InvalidOperationException("User was not found.");
+
+		var username = request.Username.Trim();
+		var email = request.Email.Trim().ToLowerInvariant();
+		var role = NormalizeRole(request.Role);
+
+		if (username.Length < 3 || username.Length > 100)
+			throw new InvalidOperationException("Username must contain between 3 and 100 characters.");
+
+		if (email.Length > 255 || !new EmailAddressAttribute().IsValid(email))
+			throw new InvalidOperationException("Email is invalid.");
+
+		var usernameOwner = await _unitOfWork.Users.GetByUsernameAsync(username, cancellationToken);
+		if (usernameOwner is not null && usernameOwner.Id != user.Id)
+			throw new InvalidOperationException("Username is already in use.");
+
+		var emailOwner = await _unitOfWork.Users.GetByEmailAsync(email, cancellationToken);
+		if (emailOwner is not null && emailOwner.Id != user.Id)
+			throw new InvalidOperationException("Email is already in use.");
+
+		user.Username = username;
+		user.Email = email;
+		user.Role = role;
+		user.IsActive = request.IsActive;
+
+		if (!string.IsNullOrWhiteSpace(request.NewPassword))
+		{
+			user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+		}
+
+		_unitOfWork.Users.Update(user);
+		await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+		return ToProfile(user);
+	}
+
+	private async Task RequireAdminAsync(long userId, CancellationToken cancellationToken)
+	{
+		var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken)
+			?? throw new InvalidOperationException("Please log in before performing this action.");
+
+		if (!user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+			throw new InvalidOperationException("Only admin can manage users.");
+	}
+
+	private static string NormalizeRole(string role)
+	{
+		return role.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+			? "Admin"
+			: "User";
 	}
 
 	private static LoginResponseDto Failure(string message) => new()
