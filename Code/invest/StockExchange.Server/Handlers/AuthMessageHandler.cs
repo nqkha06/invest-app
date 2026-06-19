@@ -36,4 +36,35 @@ public class AuthMessageHandler
     {
         return _authService.UpdateProfileAsync(userId, request, cancellationToken);
     }
+
+    public Task<IReadOnlyList<UserProfileDto>> HandleAdminGetUsersAsync(
+        long adminUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return _authService.AdminGetUsersAsync(adminUserId, cancellationToken);
+    }
+
+    public Task<UserProfileDto> HandleAdminCreateUserAsync(
+        long adminUserId,
+        RegisterRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _authService.AdminCreateUserAsync(adminUserId, request, cancellationToken);
+    }
+
+    public Task<UserProfileDto> HandleAdminUpdateUserAsync(
+        long adminUserId,
+        UpdateProfileRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _authService.AdminUpdateUserAsync(adminUserId, request, cancellationToken);
+    }
+
+    public Task<bool> HandleAdminDeleteUserAsync(
+        long adminUserId,
+        UserDeleteRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _authService.AdminDeleteUserAsync(adminUserId, request, cancellationToken);
+    }
 }

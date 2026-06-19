@@ -18,4 +18,8 @@ public class RegisterRequestDto
     [MinLength(6)]
     [MaxLength(255)]
     public string Password { get; set; } = string.Empty;
+
+    public string Role { get; set; } = "User";
+
+    public bool IsActive { get; set; } = true;
 }

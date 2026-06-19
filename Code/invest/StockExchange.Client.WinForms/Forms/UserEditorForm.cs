@@ -1,15 +1,22 @@
 using StockExchange.Client.WinForms.Helpers;
+using StockExchange.Shared.DTOs;
 using StockExchange.Client.WinForms.Mock;
 
 namespace StockExchange.Client.WinForms.Forms;
 
 public class UserEditorForm : Form
 {
-    public UserRow Result { get; private set; } = new();
+    public RegisterRequestDto CreateRequest { get; private set; } = new();
 
-    public UserEditorForm()
+    public UpdateProfileRequestDto UpdateRequest { get; private set; } = new();
+
+    private readonly UserProfileDto? _editingUser;
+
+    public UserEditorForm(UserProfileDto? user = null)
     {
-        Text = "Thêm người dùng";
+        _editingUser = user;
+
+        Text = user is null ? "Thêm người dùng" : "Chỉnh sửa người dùng";
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(580, 600);
         MinimumSize = new Size(540, 560);
@@ -43,10 +50,18 @@ public class UserEditorForm : Form
         var fields = AppTheme.CreateFormGrid(150);
         var username = AppTheme.CreateTextBox();
         var email = AppTheme.CreateTextBox();
-        var role = CreateCombo(["Member", "Admin"]);
+        var role = CreateCombo(["User", "Admin"]);
         var status = CreateCombo(["Active", "Locked"]);
         var password = AppTheme.CreateTextBox();
         password.UseSystemPasswordChar = true;
+
+        if (_editingUser is not null)
+        {
+            username.Text = _editingUser.Username;
+            email.Text = _editingUser.Email;
+            role.SelectedItem = _editingUser.Role;
+            status.SelectedItem = _editingUser.IsActive ? "Active" : "Locked";
+        }
 
         AppTheme.AddField(fields, "Tên đăng nhập", username);
         AppTheme.AddField(fields, "Email", email);
@@ -69,19 +84,44 @@ public class UserEditorForm : Form
         {
             if (string.IsNullOrWhiteSpace(username.Text) || string.IsNullOrWhiteSpace(email.Text))
             {
-                MessageBox.Show(this, "Username và email là bắt buộc.", "Template validation",
+                MessageBox.Show(this, "Username và email là bắt buộc.", "Validation",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            Result = new UserRow
+
+            if (_editingUser is null && string.IsNullOrWhiteSpace(password.Text))
             {
-                Id = MockData.Users.Count == 0 ? 1 : MockData.Users.Max(user => user.Id) + 1,
-                Username = username.Text.Trim(),
-                Email = email.Text.Trim(),
-                Role = role.Text,
-                Status = status.Text,
-                CreatedAt = DateTime.Now
-            };
+                MessageBox.Show(this, "Mật khẩu là bắt buộc khi tạo user mới.", "Validation",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var isActive = status.Text == "Active";
+
+            if (_editingUser is null)
+            {
+                CreateRequest = new RegisterRequestDto
+                {
+                    Username = username.Text.Trim(),
+                    Email = email.Text.Trim(),
+                    Password = password.Text,
+                    Role = role.Text,
+                    IsActive = isActive
+                };
+            }
+            else
+            {
+                UpdateRequest = new UpdateProfileRequestDto
+                {
+                    UserId = _editingUser.UserId,
+                    Username = username.Text.Trim(),
+                    Email = email.Text.Trim(),
+                    Role = role.Text,
+                    IsActive = isActive,
+                    NewPassword = string.IsNullOrWhiteSpace(password.Text) ? null : password.Text
+                };
+            }
+
             DialogResult = DialogResult.OK;
             Close();
         };

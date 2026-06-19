@@ -6,10 +6,15 @@ public enum MessageType
     Register = 2,
     GetProfile = 3,
     UpdateProfile = 4,
-   
+
     GetAllStocks = 5,
     SearchStocks = 6,
     CreateStock = 7,
     UpdateStock = 8,
-    DeleteStock = 9
+    DeleteStock = 9,
+
+    AdminGetUsers = 20,
+    AdminCreateUser = 21,
+    AdminUpdateUser = 22,
+    AdminDeleteUser = 23
 }

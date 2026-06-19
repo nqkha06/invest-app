@@ -33,6 +33,10 @@ public class MessageDispatcher
                 MessageType.CreateStock => await CreateStockAsync(session, message, cancellationToken),
                 MessageType.UpdateStock => await UpdateStockAsync(session, message, cancellationToken),
                 MessageType.DeleteStock => await DeleteStockAsync(session, message, cancellationToken),
+                MessageType.AdminGetUsers => await AdminGetUsersAsync(session, message, cancellationToken),
+                MessageType.AdminCreateUser => await AdminCreateUserAsync(session, message, cancellationToken),
+                MessageType.AdminUpdateUser => await AdminUpdateUserAsync(session, message, cancellationToken),
+                MessageType.AdminDeleteUser => await AdminDeleteUserAsync(session, message, cancellationToken),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
         }   
@@ -139,6 +143,49 @@ public class MessageDispatcher
         var userId = RequireUser(session);
         var request = Deserialize<UpdateProfileRequestDto>(message);
         var response = await _authHandler.HandleUpdateProfileAsync(userId, request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminGetUsersAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var response = await _authHandler.HandleAdminGetUsersAsync(adminUserId, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminCreateUserAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var request = Deserialize<RegisterRequestDto>(message);
+        var response = await _authHandler.HandleAdminCreateUserAsync(adminUserId, request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminUpdateUserAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var request = Deserialize<UpdateProfileRequestDto>(message);
+        var response = await _authHandler.HandleAdminUpdateUserAsync(adminUserId, request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminDeleteUserAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var request = Deserialize<UserDeleteRequestDto>(message);
+        var response = await _authHandler.HandleAdminDeleteUserAsync(adminUserId, request, cancellationToken);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 
