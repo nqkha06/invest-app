@@ -199,15 +199,6 @@ public partial class MainForm : Form
         _pageTitle.Anchor = AnchorStyles.Left;
         _pageTitle.Margin = Padding.Empty;
         header.Controls.Add(_pageTitle, 0, 0);
-        header.Controls.Add(new Label
-        {
-            Text = "Auth/Profile • Đã kết nối server",
-            AutoSize = true,
-            Anchor = AnchorStyles.Right,
-            ForeColor = AppTheme.Success,
-            Font = AppTheme.CreateFont(13F, FontStyle.Bold),
-            Margin = Padding.Empty
-        }, 1, 0);
 
         workspace.Controls.Add(header, 0, 0);
         workspace.Controls.Add(_content, 0, 1);
