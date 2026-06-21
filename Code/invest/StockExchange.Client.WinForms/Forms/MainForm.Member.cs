@@ -17,10 +17,7 @@ public partial class MainForm : Form
 
         var summary = new EqualColumnPanel
         {
-            Dock = DockStyle.Fill,
-            Columns = 3,
-            Gap = 12,
-            Padding = new Padding(0, 0, 0, 10)
+            Dock = DockStyle.Fill, Columns = 3, Gap = 12, Padding = new Padding(0, 0, 0, 10)
         };
         summary.Controls.Add(BuildStatCard("VN-INDEX", "1,284.21", "+8.42 (+0.66%)", AppTheme.Success));
         summary.Controls.Add(BuildStatCard("Thanh khoản", "18,420 tỷ", "Khối lượng 642M", AppTheme.Primary));
@@ -32,15 +29,51 @@ public partial class MainForm : Form
         page.Controls.Add(toolbar, 0, 1);
 
         var table = new StockTableControl();
+
+        // 1. CHUẨN BỊ 1 DANH SÁCH RỖNG ĐỂ HỨNG DATA TỪ SERVER
+        List<StockRow> realStocks = new();
+
+        // 2. HÀM LỌC (Giờ sẽ lọc trên realStocks thay vì MockData)
         void Bind(string keyword = "")
         {
-            table.SetData(new BindingList<StockRow>(MockData.Stocks
+            table.SetData(new BindingList<StockRow>(realStocks
                 .Where(stock => stock.Active && (string.IsNullOrWhiteSpace(keyword)
                     || stock.Symbol.Contains(keyword, StringComparison.OrdinalIgnoreCase)
                     || stock.Company.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
                 .ToList()));
         }
-        Bind();
+
+        // 3. HÀM BẤT ĐỒNG BỘ ĐỂ GỌI API (Không làm đơ WinForms)
+        async void FetchDataFromServerAsync()
+        {
+            try
+            {
+                // Gọi Server lấy cục data thật
+                var serverData = await _stockService.GetAllAsync();
+
+                // Chuyển đổi Stock (chuẩn Server) sang StockRow (chuẩn UI WinForms)
+                realStocks = serverData.Select(s => new StockRow
+                {
+                    Id = s.Id,
+                    Symbol = s.Symbol,
+                    Company = s.CompanyName ?? s.Symbol, // Sửa thành s.Company nếu model tên khác
+                    Price = s.CurrentPrice,
+                    Active = s.IsActive, // Sửa thành s.Active nếu model tên khác
+                   
+                }).ToList();
+
+                // Dữ liệu đã về, gọi Bind() để vẽ lên bảng
+                Bind();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Không thể tải dữ liệu thị trường: " + ex.Message, "Lỗi Server");
+            }
+        }
+
+        // 4. Kích hoạt lấy dữ liệu ngay khi vừa render xong màn hình
+        FetchDataFromServerAsync();
+
         search.TextChanged += (_, _) => Bind(search.Text);
         table.StockSelected += (_, stock) =>
         {
