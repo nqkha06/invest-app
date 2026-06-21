@@ -11,10 +11,9 @@ public partial class MainForm : Form
 {
     private Control BuildAdminDashboard()
     {
-        var page = AppTheme.CreatePage(3);
+        var page = AppTheme.CreatePage(2);
         page.AutoScroll = true;
         page.RowStyles.Add(new RowStyle(SizeType.Absolute, 170));
-        page.RowStyles.Add(new RowStyle(SizeType.Absolute, 360));
         page.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var stats = new EqualColumnPanel
@@ -24,57 +23,54 @@ public partial class MainForm : Form
             Gap = 12,
             Padding = new Padding(0, 0, 0, 12)
         };
-        stats.Controls.Add(BuildStatCard("Người dùng", MockData.Users.Count.ToString(), "+12% tháng này", AppTheme.Primary));
-        stats.Controls.Add(BuildStatCard("Stock đang hoạt động", MockData.Stocks.Count(stock => stock.Active).ToString(), "5 mã được seed", AppTheme.Success));
-        stats.Controls.Add(BuildStatCard("Simulation", MockData.Simulations.Count.ToString(), "RandomWalk", AppTheme.Warning));
-        stats.Controls.Add(BuildStatCard("Kết nối", "128", "Mock concurrent clients", Color.FromArgb(124, 58, 237)));
+        AddLoadingStats();
         page.Controls.Add(stats, 0, 0);
 
-        var middle = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            GrowStyle = TableLayoutPanelGrowStyle.FixedSize
-        };
-        middle.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64));
-        middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
-        var activitySummary = new EqualColumnPanel
-        {
-            Dock = DockStyle.Fill,
-            Columns = 2,
-            Gap = AppTheme.SpaceMd
-        };
-        activitySummary.Controls.Add(BuildStatCard("Kết nối hiện tại", "128", "Client đang hoạt động", AppTheme.Primary));
-        activitySummary.Controls.Add(BuildStatCard("Cập nhật giá", "2.4K", "Trong 7 ngày", AppTheme.Success));
-        middle.Controls.Add(WrapControl(activitySummary, "Tóm tắt hoạt động hệ thống"), 0, 0);
-
-        var health = AppTheme.CreateCard();
-        health.Dock = DockStyle.Fill;
-        var healthList = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            AutoScroll = true
-        };
-        healthList.Controls.Add(AppTheme.CreateLabel("Tình trạng service", 14F, FontStyle.Bold));
-        healthList.Controls.Add(BuildHealthRow("AuthService", "Sẵn sàng"));
-        healthList.Controls.Add(BuildHealthRow("StockService", "Sẵn sàng"));
-        healthList.Controls.Add(BuildHealthRow("WatchlistService", "Sẵn sàng"));
-        healthList.Controls.Add(BuildHealthRow("PriceHistoryService", "Chờ tích hợp"));
-        healthList.Controls.Add(BuildHealthRow("TCP Server", "Chờ tích hợp"));
-        health.Controls.Add(healthList);
-        middle.Controls.Add(health, 1, 0);
-        page.Controls.Add(middle, 0, 1);
-
         var grid = AppTheme.CreateGrid();
-        grid.DataSource = new BindingList<UserRow>(MockData.Users.OrderByDescending(user => user.CreatedAt).Take(4).ToList());
-        page.Controls.Add(WrapGrid(grid, "Người dùng mới gần đây"), 0, 2);
+        grid.DataSource = new BindingList<UserProfileDto>();
+        page.Controls.Add(WrapGrid(grid, "Recent users from server"), 0, 1);
+
+        async Task LoadDashboardAsync()
+        {
+            try
+            {
+                var dashboard = await _authService.AdminGetDashboardAsync();
+                stats.Controls.Clear();
+                stats.Controls.Add(BuildStatCard("Users", dashboard.TotalUsers.ToString("N0"), "Total database users", AppTheme.Primary));
+                stats.Controls.Add(BuildStatCard("Active stocks", dashboard.ActiveStocks.ToString("N0"), "Stocks with IsActive = true", AppTheme.Success));
+                stats.Controls.Add(BuildStatCard("Simulation configs", dashboard.SimulationConfigs.ToString("N0"), "Rows in stock_simulations", AppTheme.Warning));
+                stats.Controls.Add(BuildStatCard("Connected clients", dashboard.ConnectedClients.ToString("N0"), "Live TCP sessions", Color.FromArgb(124, 58, 237)));
+                grid.DataSource = new BindingList<UserProfileDto>(dashboard.RecentUsers);
+            }
+            catch (Exception ex)
+            {
+                AddErrorStats();
+                MessageBox.Show(this, ex.Message, "Cannot load admin dashboard",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        void AddLoadingStats()
+        {
+            stats.Controls.Clear();
+            stats.Controls.Add(BuildStatCard("Users", "...", "Loading from server", AppTheme.Primary));
+            stats.Controls.Add(BuildStatCard("Active stocks", "...", "Loading from server", AppTheme.Success));
+            stats.Controls.Add(BuildStatCard("Simulation configs", "...", "Loading from server", AppTheme.Warning));
+            stats.Controls.Add(BuildStatCard("Connected clients", "...", "Loading from server", Color.FromArgb(124, 58, 237)));
+        }
+
+        void AddErrorStats()
+        {
+            stats.Controls.Clear();
+            stats.Controls.Add(BuildStatCard("Users", "-", "Load failed", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Active stocks", "-", "Load failed", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Simulation configs", "-", "Load failed", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Connected clients", "-", "Load failed", AppTheme.Danger));
+        }
+
+        page.HandleCreated += (_, _) => _ = LoadDashboardAsync();
         return page;
     }
-
     private Control BuildUsersPage()
     {
         var page = AppTheme.CreatePage(2);

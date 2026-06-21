@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using StockExchange.Data.Repositories.Interfaces;
+using StockExchange.Server.Network;
 using StockExchange.Shared.DTOs;
 using StockExchange.Shared.Models;
 
@@ -11,10 +12,17 @@ namespace StockExchange.Server.Services;
 public class AuthService
 {
 	private readonly IUnitOfWork _unitOfWork;
+	private readonly StockService _stockService;
+	private readonly ClientManager _clientManager;
 
-	public AuthService(IUnitOfWork unitOfWork)
+	public AuthService(
+		IUnitOfWork unitOfWork,
+		StockService stockService,
+		ClientManager clientManager)
 	{
 		_unitOfWork = unitOfWork;
+		_stockService = stockService;
+		_clientManager = clientManager;
 	}
 
 	public async Task<LoginResponseDto> ValidateLoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -192,6 +200,28 @@ public class AuthService
 			.OrderByDescending(user => user.CreatedAt)
 			.Select(ToProfile)
 			.ToList();
+	}
+
+	public async Task<AdminDashboardDto> AdminGetDashboardAsync(
+		long adminUserId,
+		CancellationToken cancellationToken = default)
+	{
+		await RequireAdminAsync(adminUserId, cancellationToken);
+
+		var users = await _unitOfWork.Users.GetAllAsync(cancellationToken);
+
+		return new AdminDashboardDto
+		{
+			TotalUsers = users.Count,
+			ActiveStocks = await _stockService.CountActiveStocksAsync(cancellationToken),
+			SimulationConfigs = await _stockService.CountSimulationConfigsAsync(cancellationToken),
+			ConnectedClients = _clientManager.Count,
+			RecentUsers = users
+				.OrderByDescending(user => user.CreatedAt)
+				.Take(4)
+				.Select(ToProfile)
+				.ToList()
+		};
 	}
 
 	public async Task<UserProfileDto> AdminCreateUserAsync(

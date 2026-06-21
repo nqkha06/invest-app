@@ -37,6 +37,7 @@ public class MessageDispatcher
                 MessageType.AdminCreateUser => await AdminCreateUserAsync(session, message, cancellationToken),
                 MessageType.AdminUpdateUser => await AdminUpdateUserAsync(session, message, cancellationToken),
                 MessageType.AdminDeleteUser => await AdminDeleteUserAsync(session, message, cancellationToken),
+                MessageType.AdminGetDashboard => await AdminGetDashboardAsync(session, message, cancellationToken),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
         }   
@@ -164,6 +165,16 @@ public class MessageDispatcher
         var adminUserId = RequireUser(session);
         var request = Deserialize<RegisterRequestDto>(message);
         var response = await _authHandler.HandleAdminCreateUserAsync(adminUserId, request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminGetDashboardAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var response = await _authHandler.HandleAdminGetDashboardAsync(adminUserId, cancellationToken);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 

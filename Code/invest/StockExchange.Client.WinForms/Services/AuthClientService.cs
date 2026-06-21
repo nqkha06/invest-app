@@ -62,6 +62,14 @@ public class AuthClientService
             cancellationToken);
     }
 
+    public Task<AdminDashboardDto> AdminGetDashboardAsync(CancellationToken cancellationToken = default)
+    {
+        return _connection.SendAsync<object, AdminDashboardDto>(
+            MessageType.AdminGetDashboard,
+            new { },
+            cancellationToken);
+    }
+
     public Task<UserProfileDto> AdminCreateUserAsync(
         RegisterRequestDto request,
         CancellationToken cancellationToken = default)

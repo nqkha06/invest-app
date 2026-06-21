@@ -44,6 +44,13 @@ public class AuthMessageHandler
         return _authService.AdminGetUsersAsync(adminUserId, cancellationToken);
     }
 
+    public Task<AdminDashboardDto> HandleAdminGetDashboardAsync(
+        long adminUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return _authService.AdminGetDashboardAsync(adminUserId, cancellationToken);
+    }
+
     public Task<UserProfileDto> HandleAdminCreateUserAsync(
         long adminUserId,
         RegisterRequestDto request,

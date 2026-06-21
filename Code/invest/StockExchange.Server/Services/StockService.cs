@@ -26,6 +26,20 @@ public class StockService
             .ToListAsync();
     }
 
+    public Task<int> CountActiveStocksAsync(CancellationToken cancellationToken = default)
+    {
+        return _context.Stocks
+            .AsNoTracking()
+            .CountAsync(stock => stock.IsActive, cancellationToken);
+    }
+
+    public Task<int> CountSimulationConfigsAsync(CancellationToken cancellationToken = default)
+    {
+        return _context.StockSimulations
+            .AsNoTracking()
+            .CountAsync(cancellationToken);
+    }
+
     // 2. Logic tìm kiếm cổ phiếu (Kiểm tra lại xem trong file Stock.cs thuộc tính tên là gì)
     // Nếu file Stock.cs dùng tên khác (ví dụ: Name thay vì CompanyName), bạn hãy sửa lại cho đúng nhé!
     public async Task<IEnumerable<Stock>> SearchStocksAsync(string keyword)
