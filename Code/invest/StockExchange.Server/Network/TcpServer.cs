@@ -77,7 +77,7 @@ public class TcpServer
                     response = AppMessage.Failure(0, string.Empty, "Message format is invalid.");
                 }
 
-                await session.Writer.WriteLineAsync(JsonSerializer.Serialize(response));
+                await session.SendAsync(response, cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

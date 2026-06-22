@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using StockExchange.Server.BackgroundJobs;
 using StockExchange.Data.Context;
 using StockExchange.Data.Repositories.Implementations;
 using StockExchange.Data.Repositories.Interfaces;
@@ -29,9 +30,11 @@ internal static class Program
         services.AddScoped<MessageDispatcher>();
         services.AddScoped<StockService>();
         services.AddScoped<StockSimulationService>();
+        services.AddScoped<StockBroadcastService>();
         services.AddScoped<WatchlistService>();
         services.AddSingleton<ClientManager>();
         services.AddSingleton<TcpServer>();
+        services.AddSingleton<StockPriceUpdateJob>();
 
         await using var serviceProvider = services.BuildServiceProvider();
 
@@ -58,7 +61,9 @@ internal static class Program
 
         try
         {
-            await serviceProvider.GetRequiredService<TcpServer>().RunAsync(shutdown.Token);
+            var tcpServerTask = serviceProvider.GetRequiredService<TcpServer>().RunAsync(shutdown.Token);
+            var priceUpdateTask = serviceProvider.GetRequiredService<StockPriceUpdateJob>().RunAsync(shutdown.Token);
+            await Task.WhenAll(tcpServerTask, priceUpdateTask);
         }
         catch (OperationCanceledException)
         {
