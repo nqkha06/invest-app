@@ -310,6 +310,36 @@ public partial class MainForm : Form
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+        var configureSimulation = AppTheme.CreateButton("Cau hinh mo phong", false);
+        async Task ConfigureSelectedSimulationAsync()
+        {
+            if (grid.CurrentRow?.DataBoundItem is not StockRow stock) return;
+
+            try
+            {
+                var simulations = await _stockService.GetSimulationConfigsAsync();
+                var simulation = simulations.FirstOrDefault(item => item.StockId == stock.Id);
+                if (simulation is null)
+                {
+                    MessageBox.Show(this, $"Chua co simulation config cho {stock.Symbol}.",
+                        "Khong thay cau hinh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                using var dialog = new StockSimulationEditorForm(simulation);
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+                await _stockService.UpdateSimulationConfigAsync(dialog.Result);
+                MessageBox.Show(this, $"Da luu cau hinh mo phong cho {stock.Symbol}.",
+                    "Da luu", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Khong the cau hinh mo phong",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        configureSimulation.Click += async (_, _) => await ConfigureSelectedSimulationAsync();
         edit.Click += async (_, _) => await EditSelectedStockAsync();
         grid.CellDoubleClick += async (_, eventArgs) =>
         {
@@ -320,6 +350,7 @@ public partial class MainForm : Form
         };
         actions.Controls.Add(delete);
         actions.Controls.Add(edit);
+        actions.Controls.Add(configureSimulation);
         card.Controls.Add(actions);
         page.Controls.Add(card, 0, 1);
         _ = LoadStocksAsync();
@@ -366,14 +397,14 @@ public partial class MainForm : Form
         var split = new SplitContainer
         {
             Dock = DockStyle.Fill,
-            SplitterDistance = 520,
             BackColor = AppTheme.Background,
-            FixedPanel = FixedPanel.Panel2,
-            Panel1MinSize = 420,
-            Panel2MinSize = 340
+            FixedPanel = FixedPanel.Panel2
         };
+        split.HandleCreated += (_, _) => ApplySimulationSplitterLayout(split);
+        split.SizeChanged += (_, _) => ApplySimulationSplitterLayout(split);
         var grid = AppTheme.CreateGrid();
-        grid.DataSource = MockData.Simulations;
+        var simulations = new BindingList<StockSimulationConfigDto>();
+        grid.DataSource = simulations;
         split.Panel1.Padding = new Padding(0, 0, 10, 0);
         split.Panel1.Controls.Add(WrapGrid(grid, "Thông số mô phỏng theo stock"));
 
@@ -403,11 +434,27 @@ public partial class MainForm : Form
         form.Controls.Add(save);
         editor.Controls.Add(form);
 
+        async Task LoadSimulationsAsync()
+        {
+            try
+            {
+                var databaseSimulations = await _stockService.GetSimulationConfigsAsync();
+                simulations = new BindingList<StockSimulationConfigDto>(databaseSimulations);
+                grid.DataSource = simulations;
+                LoadSelected();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Cannot load simulation configs",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         void LoadSelected()
         {
-            if (grid.CurrentRow?.DataBoundItem is not SimulationRow simulation) return;
+            if (grid.CurrentRow?.DataBoundItem is not StockSimulationConfigDto simulation) return;
             symbol.Text = simulation.Symbol;
-            algorithm.SelectedItem = simulation.Algorithm;
+            algorithm.SelectedItem = simulation.AlgorithmType;
             volatility.Value = Clamp(volatility, simulation.Volatility);
             trend.Value = Clamp(trend, simulation.TrendFactor);
             minPrice.Value = Clamp(minPrice, simulation.MinPrice);
@@ -416,21 +463,99 @@ public partial class MainForm : Form
             jump.Value = Clamp(jump, simulation.JumpProbability);
         }
         grid.SelectionChanged += (_, _) => LoadSelected();
-        save.Click += (_, _) =>
+        save.Click += async (_, _) =>
         {
-            if (grid.CurrentRow?.DataBoundItem is not SimulationRow simulation) return;
-            simulation.Algorithm = algorithm.Text;
-            simulation.Volatility = volatility.Value;
-            simulation.TrendFactor = trend.Value;
-            simulation.MinPrice = minPrice.Value;
-            simulation.MaxPrice = maxPrice.Value;
-            simulation.UpdateSpeed = speed.Value;
-            simulation.JumpProbability = jump.Value;
-            grid.Refresh();
-            AppTheme.ShowTemplateNotice(this, $"Lưu simulation cho {simulation.Symbol}");
+            if (grid.CurrentRow?.DataBoundItem is not StockSimulationConfigDto simulation) return;
+            if (!ValidateSimulationInput(minPrice.Value, maxPrice.Value, speed.Value, volatility.Value, jump.Value))
+            {
+                return;
+            }
+
+            try
+            {
+                var updated = await _stockService.UpdateSimulationConfigAsync(new StockSimulationUpdateDto
+                {
+                    Id = simulation.Id,
+                    AlgorithmType = algorithm.Text,
+                    Volatility = volatility.Value,
+                    TrendFactor = trend.Value,
+                    MinPrice = minPrice.Value,
+                    MaxPrice = maxPrice.Value,
+                    UpdateSpeed = speed.Value,
+                    JumpProbability = jump.Value
+                });
+                ApplySimulation(simulation, updated);
+                grid.Refresh();
+                MessageBox.Show(this, $"Saved simulation for {simulation.Symbol}.", "Saved",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Cannot save simulation config",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         };
-        LoadSelected();
+        _ = LoadSimulationsAsync();
         return split;
     }
 
+    private static void ApplySimulationSplitterLayout(SplitContainer split)
+    {
+        if (split.Width <= 0)
+        {
+            return;
+        }
+
+        var panel2MinSize = Math.Min(340, Math.Max(0, split.Width / 2 - split.SplitterWidth));
+        var panel1MinSize = Math.Min(420, Math.Max(0, split.Width - panel2MinSize - split.SplitterWidth));
+        var maxDistance = split.Width - panel2MinSize - split.SplitterWidth;
+        var distance = Math.Min(520, Math.Max(panel1MinSize, maxDistance));
+
+        split.Panel1MinSize = 0;
+        split.Panel2MinSize = 0;
+        split.SplitterDistance = distance;
+        split.Panel1MinSize = panel1MinSize;
+        split.Panel2MinSize = panel2MinSize;
+    }
+
+    private bool ValidateSimulationInput(
+        decimal minPrice,
+        decimal maxPrice,
+        decimal speed,
+        decimal volatility,
+        decimal jumpProbability)
+    {
+        if (minPrice >= maxPrice)
+        {
+            MessageBox.Show(this, "Minimum price must be lower than maximum price.",
+                "Invalid simulation config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        if (speed <= 0)
+        {
+            MessageBox.Show(this, "Update speed must be greater than zero.",
+                "Invalid simulation config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        if (volatility < 0 || volatility > 1 || jumpProbability < 0 || jumpProbability > 1)
+        {
+            MessageBox.Show(this, "Volatility and jump probability must be between 0 and 1.",
+                "Invalid simulation config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void ApplySimulation(StockSimulationConfigDto target, StockSimulationConfigDto source)
+    {
+        target.AlgorithmType = source.AlgorithmType;
+        target.Volatility = source.Volatility;
+        target.TrendFactor = source.TrendFactor;
+        target.MinPrice = source.MinPrice;
+        target.MaxPrice = source.MaxPrice;
+        target.UpdateSpeed = source.UpdateSpeed;
+        target.JumpProbability = source.JumpProbability;
+        target.UpdatedAt = source.UpdatedAt;
+    }
 }

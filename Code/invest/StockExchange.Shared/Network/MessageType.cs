@@ -17,5 +17,7 @@ public enum MessageType
     AdminCreateUser = 21,
     AdminUpdateUser = 22,
     AdminDeleteUser = 23,
-    AdminGetDashboard = 24
+    AdminGetDashboard = 24,
+    AdminGetSimulations = 25,
+    AdminUpdateSimulation = 26
 }

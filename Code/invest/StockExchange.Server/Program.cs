@@ -28,6 +28,7 @@ internal static class Program
         services.AddScoped<StockMessageHandler>(); // dùng để nhận diện StockMessageHandler trong MessageDispatcher để sử dụng MessageDispatcher
         services.AddScoped<MessageDispatcher>();
         services.AddScoped<StockService>();
+        services.AddScoped<StockSimulationService>();
         services.AddScoped<WatchlistService>();
         services.AddSingleton<ClientManager>();
         services.AddSingleton<TcpServer>();

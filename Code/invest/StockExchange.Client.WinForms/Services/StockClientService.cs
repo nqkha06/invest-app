@@ -44,4 +44,22 @@ public class StockClientService
             new StockDeleteRequestDto { Id = id },
             cancellationToken);
     }
+
+    public Task<List<StockSimulationConfigDto>> GetSimulationConfigsAsync(CancellationToken cancellationToken = default)
+    {
+        return _connection.SendAsync<object, List<StockSimulationConfigDto>>(
+            MessageType.AdminGetSimulations,
+            new { },
+            cancellationToken);
+    }
+
+    public Task<StockSimulationConfigDto> UpdateSimulationConfigAsync(
+        StockSimulationUpdateDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _connection.SendAsync<StockSimulationUpdateDto, StockSimulationConfigDto>(
+            MessageType.AdminUpdateSimulation,
+            request,
+            cancellationToken);
+    }
 }

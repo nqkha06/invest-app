@@ -14,6 +14,12 @@ public class StockSimulationRepository : IStockSimulationRepository
         _context = context;
     }
 
+    public Task<StockSimulation?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
+    {
+        return _context.StockSimulations
+            .FirstOrDefaultAsync(simulation => simulation.Id == id, cancellationToken);
+    }
+
     public Task<StockSimulation?> GetByStockIdAsync(long stockId, CancellationToken cancellationToken = default)
     {
         return _context.StockSimulations

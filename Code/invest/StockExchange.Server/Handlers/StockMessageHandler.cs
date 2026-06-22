@@ -9,10 +9,12 @@ namespace StockExchange.Server.Handlers;
 public class StockMessageHandler
 {
     private readonly StockService _stockService;
+    private readonly StockSimulationService _simulationService;
 
-    public StockMessageHandler(StockService stockService)
+    public StockMessageHandler(StockService stockService, StockSimulationService simulationService)
     {
         _stockService = stockService;
+        _simulationService = simulationService;
     }
 
     public async Task<IEnumerable<Stock>> HandleGetAllStocksAsync()
@@ -50,5 +52,20 @@ public class StockMessageHandler
     {
         await _stockService.DeleteStockAsync(userId, request.Id, cancellationToken);
         return true;
+    }
+
+    public Task<List<StockSimulationConfigDto>> HandleGetSimulationsAsync(
+        long adminUserId,
+        CancellationToken cancellationToken = default)
+    {
+        return _simulationService.GetAllAsync(adminUserId, cancellationToken);
+    }
+
+    public Task<StockSimulationConfigDto> HandleUpdateSimulationAsync(
+        long adminUserId,
+        StockSimulationUpdateDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return _simulationService.UpdateAsync(adminUserId, request, cancellationToken);
     }
 }

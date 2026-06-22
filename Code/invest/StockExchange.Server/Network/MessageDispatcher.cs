@@ -38,6 +38,8 @@ public class MessageDispatcher
                 MessageType.AdminUpdateUser => await AdminUpdateUserAsync(session, message, cancellationToken),
                 MessageType.AdminDeleteUser => await AdminDeleteUserAsync(session, message, cancellationToken),
                 MessageType.AdminGetDashboard => await AdminGetDashboardAsync(session, message, cancellationToken),
+                MessageType.AdminGetSimulations => await AdminGetSimulationsAsync(session, message, cancellationToken),
+                MessageType.AdminUpdateSimulation => await AdminUpdateSimulationAsync(session, message, cancellationToken),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
         }   
@@ -197,6 +199,27 @@ public class MessageDispatcher
         var adminUserId = RequireUser(session);
         var request = Deserialize<UserDeleteRequestDto>(message);
         var response = await _authHandler.HandleAdminDeleteUserAsync(adminUserId, request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminGetSimulationsAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var response = await _stockHandler.HandleGetSimulationsAsync(adminUserId, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AdminUpdateSimulationAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var adminUserId = RequireUser(session);
+        var request = Deserialize<StockSimulationUpdateDto>(message);
+        var response = await _stockHandler.HandleUpdateSimulationAsync(adminUserId, request, cancellationToken);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 
