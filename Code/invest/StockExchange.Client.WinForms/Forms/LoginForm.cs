@@ -1,17 +1,23 @@
+
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Services;
 
 namespace StockExchange.Client.WinForms.Forms;
 
-public class LoginForm : Form
+public partial class LoginForm : Form
 {
     private readonly ClientConnectionService _connection = new();
     private readonly AuthClientService _authService;
+    private readonly StockClientService _stockService;
     private readonly TextBox _username = AppTheme.CreateTextBox("Tên đăng nhập hoặc email");
     private readonly TextBox _password = AppTheme.CreateTextBox("Mật khẩu");
 
-    public LoginForm()
-    {
+    public LoginForm(AuthClientService authService, StockClientService stockService)
+    {   
+        
+
+        _authService = authService;
+        _stockService = stockService;
         _authService = new AuthClientService(_connection);
         Text = "Invest App - Đăng nhập";
         StartPosition = FormStartPosition.CenterScreen;
@@ -223,13 +229,15 @@ public class LoginForm : Form
                 return;
             }
 
-            Hide();
-            using var main = new MainForm(
-                response,
-                _authService,
-                new StockClientService(_connection));
-            main.ShowDialog();
-            Show();
+           Hide();
+        using var main = new MainForm(
+            response,
+            _authService,
+            _stockService
+            
+        );
+        main.ShowDialog();
+        Show();
         }
         catch (Exception ex)
         {
