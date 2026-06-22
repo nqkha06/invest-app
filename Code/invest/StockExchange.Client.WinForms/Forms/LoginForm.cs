@@ -230,7 +230,8 @@ public partial class LoginForm : Form
         using var main = new MainForm(
             response,
             _authService,
-            _stockService
+            _stockService,
+            _connection
             
         );
         main.ShowDialog();

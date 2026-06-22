@@ -35,6 +35,11 @@ public class StockTableControl : UserControl
 
     public StockRow? SelectedStock => _grid.CurrentRow?.DataBoundItem as StockRow;
 
+    public void RefreshData()
+    {
+        _grid.Refresh();
+    }
+
     private void RaiseSelected()
     {
         if (SelectedStock is { } stock)

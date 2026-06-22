@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using StockExchange.Shared.DTOs;
 using StockExchange.Shared.Network;
 
 namespace StockExchange.Client.WinForms.Services;
@@ -8,36 +10,40 @@ namespace StockExchange.Client.WinForms.Services;
 public sealed class ClientConnectionService : IAsyncDisposable
 {
     private const int ServerPort = 5050;
-    private readonly SemaphoreSlim _requestLock = new(1, 1);
+    private readonly SemaphoreSlim _connectionLock = new(1, 1);
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<AppMessage>> _pendingRequests = new();
     private TcpClient? _client;
     private StreamReader? _reader;
     private StreamWriter? _writer;
+    private CancellationTokenSource? _readLoopCancellation;
+
+    public event EventHandler<StockPriceUpdateDto>? StockPriceUpdated;
 
     public async Task<TResponse> SendAsync<TRequest, TResponse>(
         MessageType type,
         TRequest request,
         CancellationToken cancellationToken = default)
     {
-        await _requestLock.WaitAsync(cancellationToken);
+        await EnsureConnectedAsync(cancellationToken);
+        var message = AppMessage.Create(type, request);
+        var pending = new TaskCompletionSource<AppMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingRequests[message.RequestId] = pending;
+
         try
         {
-            await EnsureConnectedAsync(cancellationToken);
-            var message = AppMessage.Create(type, request);
-            await _writer!.WriteLineAsync(JsonSerializer.Serialize(message));
-
-            var line = await _reader!.ReadLineAsync(cancellationToken);
-            if (line is null)
+            await _writeLock.WaitAsync(cancellationToken);
+            try
             {
-                ResetConnection();
-                throw new IOException("Server closed the connection.");
+                await _writer!.WriteLineAsync(JsonSerializer.Serialize(message));
+            }
+            finally
+            {
+                _writeLock.Release();
             }
 
-            var response = JsonSerializer.Deserialize<AppMessage>(line)
-                ?? throw new IOException("Server returned an invalid response.");
-            if (response.RequestId != message.RequestId)
-            {
-                throw new IOException("Server response did not match the request.");
-            }
+            await using var registration = cancellationToken.Register(() => pending.TrySetCanceled(cancellationToken));
+            var response = await pending.Task;
             if (!response.Success)
             {
                 throw new InvalidOperationException(response.Error);
@@ -49,11 +55,11 @@ public sealed class ClientConnectionService : IAsyncDisposable
         catch (SocketException ex)
         {
             ResetConnection();
-            throw new IOException("Không thể kết nối tới server. Hãy kiểm tra server đang chạy.", ex);
+            throw new IOException("Khong the ket noi toi server. Hay kiem tra server dang chay.", ex);
         }
         finally
         {
-            _requestLock.Release();
+            _pendingRequests.TryRemove(message.RequestId, out _);
         }
     }
 
@@ -64,31 +70,100 @@ public sealed class ClientConnectionService : IAsyncDisposable
             return;
         }
 
-        ResetConnection();
-        _client = new TcpClient();
-        await _client.ConnectAsync("127.0.0.1", ServerPort, cancellationToken);
-        var stream = _client.GetStream();
-        _reader = new StreamReader(stream, Encoding.UTF8, false, leaveOpen: true);
-        _writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true)
+        await _connectionLock.WaitAsync(cancellationToken);
+        try
         {
-            AutoFlush = true
-        };
+            if (_client?.Connected == true)
+            {
+                return;
+            }
+
+            ResetConnection();
+            _client = new TcpClient();
+            await _client.ConnectAsync("127.0.0.1", ServerPort, cancellationToken);
+            var stream = _client.GetStream();
+            _reader = new StreamReader(stream, Encoding.UTF8, false, leaveOpen: true);
+            _writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: true)
+            {
+                AutoFlush = true
+            };
+            _readLoopCancellation = new CancellationTokenSource();
+            _ = Task.Run(() => ReadLoopAsync(_readLoopCancellation.Token));
+        }
+        finally
+        {
+            _connectionLock.Release();
+        }
+    }
+
+    private async Task ReadLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var line = await _reader!.ReadLineAsync(cancellationToken);
+                if (line is null)
+                {
+                    break;
+                }
+
+                var message = JsonSerializer.Deserialize<AppMessage>(line);
+                if (message is null)
+                {
+                    continue;
+                }
+
+                if (message.Type == MessageType.StockPriceUpdated)
+                {
+                    var update = message.Payload.Deserialize<StockPriceUpdateDto>();
+                    if (update is not null)
+                    {
+                        StockPriceUpdated?.Invoke(this, update);
+                    }
+                    continue;
+                }
+
+                if (_pendingRequests.TryRemove(message.RequestId, out var pending))
+                {
+                    pending.TrySetResult(message);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            foreach (var pending in _pendingRequests.Values)
+            {
+                pending.TrySetException(ex);
+            }
+        }
+        finally
+        {
+            ResetConnection();
+        }
     }
 
     private void ResetConnection()
     {
+        _readLoopCancellation?.Cancel();
         _reader?.Dispose();
         _writer?.Dispose();
         _client?.Dispose();
+        _readLoopCancellation?.Dispose();
         _reader = null;
         _writer = null;
         _client = null;
+        _readLoopCancellation = null;
     }
 
     public ValueTask DisposeAsync()
     {
         ResetConnection();
-        _requestLock.Dispose();
+        _connectionLock.Dispose();
+        _writeLock.Dispose();
         return ValueTask.CompletedTask;
     }
 }

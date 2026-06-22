@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
@@ -17,70 +16,37 @@ public partial class MainForm : Form
 
         var summary = new EqualColumnPanel
         {
-            Dock = DockStyle.Fill, Columns = 3, Gap = 12, Padding = new Padding(0, 0, 0, 10)
+            Dock = DockStyle.Fill,
+            Columns = 3,
+            Gap = 12,
+            Padding = new Padding(0, 0, 0, 10)
         };
         summary.Controls.Add(BuildStatCard("VN-INDEX", "1,284.21", "+8.42 (+0.66%)", AppTheme.Success));
-        summary.Controls.Add(BuildStatCard("Thanh khoản", "18,420 tỷ", "Khối lượng 642M", AppTheme.Primary));
-        summary.Controls.Add(BuildStatCard("Độ rộng", "238 tăng", "92 giảm • 61 tham chiếu", AppTheme.Warning));
+        summary.Controls.Add(BuildStatCard("Liquidity", "18,420 ty", "Volume 642M", AppTheme.Primary));
+        summary.Controls.Add(BuildStatCard("Breadth", "238 up", "92 down - 61 flat", AppTheme.Warning));
         page.Controls.Add(summary, 0, 0);
 
-        var toolbar = BuildToolbar("Tìm kiếm cổ phiếu...", "Bộ lọc", out var search, out var filter);
-        filter.Click += (_, _) => AppTheme.ShowTemplateNotice(this, "Lọc theo ngành và trạng thái");
+        var toolbar = BuildToolbar("Tim kiem co phieu...", "Refresh", out var search, out var refresh);
+        refresh.Click += async (_, _) => await RefreshStocksAsync();
         page.Controls.Add(toolbar, 0, 1);
 
         var table = new StockTableControl();
+        _marketTable = table;
+        RebindMarket();
+        _ = RefreshStocksAsync();
 
-        // 1. CHUẨN BỊ 1 DANH SÁCH RỖNG ĐỂ HỨNG DATA TỪ SERVER
-        List<StockRow> realStocks = new();
-
-        // 2. HÀM LỌC (Giờ sẽ lọc trên realStocks thay vì MockData)
-        void Bind(string keyword = "")
+        search.TextChanged += (_, _) =>
         {
-            table.SetData(new BindingList<StockRow>(realStocks
-                .Where(stock => stock.Active && (string.IsNullOrWhiteSpace(keyword)
-                    || stock.Symbol.Contains(keyword, StringComparison.OrdinalIgnoreCase)
-                    || stock.Company.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
-                .ToList()));
-        }
-
-        // 3. HÀM BẤT ĐỒNG BỘ ĐỂ GỌI API (Không làm đơ WinForms)
-        async void FetchDataFromServerAsync()
-        {
-            try
-            {
-                // Gọi Server lấy cục data thật
-                var serverData = await _stockService.GetAllAsync();
-
-                // Chuyển đổi Stock (chuẩn Server) sang StockRow (chuẩn UI WinForms)
-                realStocks = serverData.Select(s => new StockRow
-                {
-                    Id = s.Id,
-                    Symbol = s.Symbol,
-                    Company = s.CompanyName ?? s.Symbol, // Sửa thành s.Company nếu model tên khác
-                    Price = s.CurrentPrice,
-                    Active = s.IsActive, // Sửa thành s.Active nếu model tên khác
-                   
-                }).ToList();
-
-                // Dữ liệu đã về, gọi Bind() để vẽ lên bảng
-                Bind();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Không thể tải dữ liệu thị trường: " + ex.Message, "Lỗi Server");
-            }
-        }
-
-        // 4. Kích hoạt lấy dữ liệu ngay khi vừa render xong màn hình
-        FetchDataFromServerAsync();
-
-        search.TextChanged += (_, _) => Bind(search.Text);
+            _marketSearch = search.Text;
+            RebindMarket();
+        };
         table.StockSelected += (_, stock) =>
         {
             _selectedStock = stock;
-            Navigate("Chi tiết stock");
+            Navigate("Chi tiáº¿t stock");
         };
-        page.Controls.Add(WrapControl(table, "Bảng giá • Double click để xem chi tiết"), 0, 2);
+
+        page.Controls.Add(WrapControl(table, "Bang gia - Double click de xem chi tiet"), 0, 2);
         return page;
     }
 
@@ -99,8 +65,10 @@ public partial class MainForm : Form
         page.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         var list = new WatchlistControl { Dock = DockStyle.Fill };
-        list.SetStocks(MockData.Watchlist);
-        page.Controls.Add(WrapControl(list, "Danh sách theo dõi"), 0, 0);
+        _watchlistControl = list;
+        var watchlistStocks = GetWatchlistStocks();
+        list.SetStocks(watchlistStocks);
+        page.Controls.Add(WrapControl(list, "Danh sach theo doi"), 0, 0);
 
         var detailHost = AppTheme.CreateCard();
         detailHost.Dock = DockStyle.Fill;
@@ -109,6 +77,7 @@ public partial class MainForm : Form
 
         void ShowMiniDetail(StockRow stock)
         {
+            _watchlistSelectedStock = stock;
             detailHost.Controls.Clear();
             var layout = AppTheme.CreatePage(3);
             layout.BackColor = AppTheme.Surface;
@@ -127,21 +96,18 @@ public partial class MainForm : Form
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             header.Controls.Add(AppTheme.CreateLabel($"{stock.Symbol} - {stock.Company}", 18F, FontStyle.Bold), 0, 0);
-            header.Controls.Add(AppTheme.CreateLabel(
-                $"{stock.ChangePercent:+0.00;-0.00;0.00}%",
-                12F,
-                FontStyle.Bold,
-                stock.ChangePercent >= 0 ? AppTheme.Success : AppTheme.Danger), 1, 0);
 
             var summary = new StockSummaryControl();
             summary.SetStock(stock);
-            var open = AppTheme.CreateButton("Xem chi tiết");
+            _watchlistSummary = summary;
+
+            var open = AppTheme.CreateButton("Xem chi tiet");
             open.Anchor = AnchorStyles.Right;
             open.Margin = new Padding(0, AppTheme.SpaceMd, 0, 0);
             open.Click += (_, _) =>
             {
                 _selectedStock = stock;
-                Navigate("Chi tiết stock");
+                Navigate("Chi tiáº¿t stock");
             };
             var actions = new FlowLayoutPanel
             {
@@ -157,8 +123,9 @@ public partial class MainForm : Form
             layout.Controls.Add(actions, 0, 2);
             detailHost.Controls.Add(layout);
         }
+
         list.StockSelected += (_, stock) => ShowMiniDetail(stock);
-        if (MockData.Watchlist.FirstOrDefault() is { } initialStock)
+        if (watchlistStocks.FirstOrDefault() is { } initialStock)
         {
             list.SelectStock(initialStock);
         }
@@ -166,7 +133,7 @@ public partial class MainForm : Form
         {
             detailHost.Controls.Add(new Label
             {
-                Text = "Chọn cổ phiếu từ thị trường để thêm vào watchlist.",
+                Text = "Chon co phieu tu thi truong de xem watchlist.",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Font = AppTheme.BodyFont,
@@ -175,6 +142,13 @@ public partial class MainForm : Form
         }
 
         return page;
+    }
+
+    private List<StockRow> GetWatchlistStocks()
+    {
+        var symbols = MockData.Watchlist.Select(stock => stock.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var stocks = _stocks.Where(stock => symbols.Contains(stock.Symbol)).ToList();
+        return stocks.Count == 0 ? MockData.Watchlist.ToList() : stocks;
     }
 
     private Control BuildProfilePage()
@@ -210,14 +184,14 @@ public partial class MainForm : Form
             Margin = new Padding(48, 15, 0, 18)
         };
         var summaryName = AppTheme.CreateLabel(_username, 16F, FontStyle.Bold);
-        var memberSince = AppTheme.CreateLabel("Đang tải thông tin...", 9F, FontStyle.Regular, AppTheme.Muted);
-        var status = AppTheme.CreateLabel("Trạng thái: Active", 10F, FontStyle.Regular, AppTheme.Success);
+        var memberSince = AppTheme.CreateLabel("Dang tai thong tin...", 9F, FontStyle.Regular, AppTheme.Muted);
+        var status = AppTheme.CreateLabel("Trang thai: Active", 10F, FontStyle.Regular, AppTheme.Success);
         summaryFlow.Controls.Add(avatar);
         summaryFlow.Controls.Add(summaryName);
         summaryFlow.Controls.Add(AppTheme.CreateLabel(_isAdmin ? "Administrator" : "Member", 10F, FontStyle.Bold, AppTheme.Primary));
         summaryFlow.Controls.Add(memberSince);
         summaryFlow.Controls.Add(new Panel { Width = 1, Height = 20 });
-        summaryFlow.Controls.Add(AppTheme.CreateLabel($"Watchlist: {MockData.Watchlist.Count} mã", 10F, FontStyle.Regular));
+        summaryFlow.Controls.Add(AppTheme.CreateLabel($"Watchlist: {GetWatchlistStocks().Count} ma", 10F, FontStyle.Regular));
         summaryFlow.Controls.Add(status);
         summary.Controls.Add(summaryFlow);
         page.Controls.Add(summary, 0, 0);
@@ -231,12 +205,12 @@ public partial class MainForm : Form
             WrapContents = false,
             AutoScroll = true
         };
-        form.Controls.Add(AppTheme.CreateLabel("Thông tin cá nhân", 17F, FontStyle.Bold));
-        form.Controls.Add(AppTheme.CreateLabel("Cập nhật thông tin cơ bản của tài khoản.", 9.5F, FontStyle.Regular, AppTheme.Muted));
+        form.Controls.Add(AppTheme.CreateLabel("Thong tin ca nhan", 17F, FontStyle.Bold));
+        form.Controls.Add(AppTheme.CreateLabel("Cap nhat thong tin co ban cua tai khoan.", 9.5F, FontStyle.Regular, AppTheme.Muted));
         form.Controls.Add(new Panel { Width = 1, Height = 14 });
-        var username = AddTextField(form, "Tên đăng nhập", _username);
+        var username = AddTextField(form, "Ten dang nhap", _username);
         var email = AddTextField(form, "Email", _profile.Email);
-        var save = AppTheme.CreateButton("Lưu thay đổi");
+        var save = AppTheme.CreateButton("Luu thay doi");
         save.Width = 360;
         save.Click += async (_, _) =>
         {
@@ -245,12 +219,12 @@ public partial class MainForm : Form
             {
                 _profile = await _authService.UpdateProfileAsync(username.Text.Trim(), email.Text.Trim());
                 ApplyProfile(_profile, username, email, avatar, summaryName, memberSince, status);
-                MessageBox.Show(this, "Cập nhật hồ sơ thành công.", "Thành công",
+                MessageBox.Show(this, "Cap nhat ho so thanh cong.", "Thanh cong",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Không thể cập nhật hồ sơ",
+                MessageBox.Show(this, ex.Message, "Khong the cap nhat ho so",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
@@ -285,7 +259,7 @@ public partial class MainForm : Form
         {
             if (!IsDisposed && !username.IsDisposed)
             {
-                MessageBox.Show(this, ex.Message, "Không thể tải hồ sơ",
+                MessageBox.Show(this, ex.Message, "Khong the tai ho so",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -299,17 +273,16 @@ public partial class MainForm : Form
         Label summaryName,
         Label memberSince,
         Label status)
-    {   
+    {
         _username = profile.Username;
         username.Text = profile.Username;
         email.Text = profile.Email;
         avatar.Text = !string.IsNullOrEmpty(profile.Username) ? profile.Username[..1].ToUpperInvariant() : "?";
         summaryName.Text = profile.Username;
-        memberSince.Text = $"Thành viên từ {profile.CreatedAt:yyyy}";
-        status.Text = profile.IsActive ? "Trạng thái: Active" : "Trạng thái: Inactive";
+        memberSince.Text = $"Thanh vien tu {profile.CreatedAt:yyyy}";
+        status.Text = profile.IsActive ? "Trang thai: Active" : "Trang thai: Inactive";
         status.ForeColor = profile.IsActive ? AppTheme.Success : AppTheme.Danger;
         _accountName.Text = profile.Username;
         _accountAvatar.Text = avatar.Text;
     }
-
 }

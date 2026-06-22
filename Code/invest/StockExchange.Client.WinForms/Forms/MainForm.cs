@@ -4,6 +4,7 @@ using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
 using StockExchange.Client.WinForms.Services;
 using StockExchange.Shared.DTOs;
+using StockExchange.Shared.Models;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -13,23 +14,42 @@ public partial class MainForm : Form
     private readonly bool _isAdmin;
     private readonly AuthClientService _authService;
     private readonly StockClientService _stockService;
+    private readonly ClientConnectionService _connection;
     private UserProfileDto _profile;
     private readonly Label _accountName = new();
     private readonly Label _accountAvatar = new();
     private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = AppTheme.Background, Padding = new Padding(AppTheme.SpaceXl) };
     private readonly Label _pageTitle = AppTheme.CreateLabel("", 18F, FontStyle.Bold);
     private readonly Dictionary<string, Button> _navButtons = [];
+    private readonly BindingList<StockRow> _stocks = [];
+    private readonly Dictionary<long, StockRow> _stockById = [];
+    private readonly object _pendingPriceUpdateLock = new();
+    private readonly Dictionary<long, StockPriceUpdateDto> _pendingPriceUpdates = [];
+    private readonly System.Windows.Forms.Timer _priceUpdateTimer = new() { Interval = 250 };
     private StockRow _selectedStock = MockData.Stocks[0];
+    private string _currentPage = string.Empty;
+    private string _marketSearch = string.Empty;
+    private StockTableControl? _marketTable;
+    private WatchlistControl? _watchlistControl;
+    private StockRow? _watchlistSelectedStock;
+    private StockSummaryControl? _watchlistSummary;
+    private Label? _detailPrice;
+    private Label? _detailChange;
+    private StockSummaryControl? _detailSummary;
 
     public MainForm(
         LoginResponseDto login,
         AuthClientService authService,
-        StockClientService stockService)
+        StockClientService stockService,
+        ClientConnectionService connection)
     {
         _username = login.Username ?? "User"; 
         _isAdmin = string.Equals(login.Role, "Admin", StringComparison.OrdinalIgnoreCase);
         _authService = authService;
         _stockService = stockService;
+        _connection = connection;
+        _connection.StockPriceUpdated += HandleStockPriceUpdated;
+        _priceUpdateTimer.Tick += (_, _) => FlushPendingPriceUpdates();
         _profile = new UserProfileDto
         {
             UserId = login.UserId,
@@ -57,6 +77,12 @@ public partial class MainForm : Form
         shell.Controls.Add(BuildWorkspace(), 1, 0);
         Navigate(_isAdmin ? "Tổng quan" : "Thị trường");
         Shown += (_, _) => AppTheme.ApplyCommonStyles(this);
+        FormClosed += (_, _) =>
+        {
+            _connection.StockPriceUpdated -= HandleStockPriceUpdated;
+            _priceUpdateTimer.Stop();
+            _priceUpdateTimer.Dispose();
+        };
     }
 
     private Control BuildSidebar()
@@ -207,6 +233,14 @@ public partial class MainForm : Form
 
     private void Navigate(string page)
     {
+        _currentPage = page;
+        _marketTable = null;
+        _watchlistControl = null;
+        _watchlistSelectedStock = null;
+        _watchlistSummary = null;
+        _detailPrice = null;
+        _detailChange = null;
+        _detailSummary = null;
         _pageTitle.Text = page;
         foreach (var pair in _navButtons)
         {
@@ -230,6 +264,151 @@ public partial class MainForm : Form
         };
         view.Dock = DockStyle.Fill;
         _content.Controls.Add(view);
+    }
+
+    private async Task RefreshStocksAsync()
+    {
+        var serverData = await _stockService.GetAllAsync();
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => ApplyStocks(serverData));
+            return;
+        }
+
+        ApplyStocks(serverData);
+    }
+
+    private void ApplyStocks(IEnumerable<Stock> serverData)
+    {
+        foreach (var stock in serverData)
+        {
+            if (!_stockById.TryGetValue(stock.Id, out var row))
+            {
+                row = ToStockRow(stock);
+                _stockById[row.Id] = row;
+                _stocks.Add(row);
+            }
+            else
+            {
+                ApplyStock(row, stock);
+            }
+        }
+
+        if (_stocks.Count > 0 && !_stockById.ContainsKey(_selectedStock.Id))
+        {
+            _selectedStock = _stocks[0];
+        }
+
+        RebindMarket();
+    }
+
+    private void HandleStockPriceUpdated(object? sender, StockPriceUpdateDto update)
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        lock (_pendingPriceUpdateLock)
+        {
+            _pendingPriceUpdates[update.StockId] = update;
+        }
+
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        try
+        {
+            BeginInvoke(() =>
+            {
+                if (!_priceUpdateTimer.Enabled)
+                {
+                    _priceUpdateTimer.Start();
+                }
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private void FlushPendingPriceUpdates()
+    {
+        _priceUpdateTimer.Stop();
+        List<StockPriceUpdateDto> updates;
+        lock (_pendingPriceUpdateLock)
+        {
+            updates = _pendingPriceUpdates.Values.ToList();
+            _pendingPriceUpdates.Clear();
+        }
+
+        var needsFullRefresh = false;
+        foreach (var update in updates)
+        {
+            needsFullRefresh |= !ApplyStockPriceUpdate(update);
+        }
+
+        if (needsFullRefresh)
+        {
+            _ = RefreshStocksAsync();
+        }
+
+        _marketTable?.RefreshData();
+    }
+
+    private bool ApplyStockPriceUpdate(StockPriceUpdateDto update)
+    {
+        if (!_stockById.TryGetValue(update.StockId, out var stock))
+        {
+            return false;
+        }
+
+        stock.Price = update.Price;
+        stock.ChangePercent = update.ChangePercent;
+
+        if (_selectedStock.Id == stock.Id)
+        {
+            _selectedStock = stock;
+            _detailPrice?.Text = $"{stock.Price:N2}";
+            if (_detailChange is not null)
+            {
+                _detailChange.Text = $"{stock.ChangePercent:+0.00;-0.00;0.00}%";
+                _detailChange.ForeColor = stock.ChangePercent >= 0 ? AppTheme.Success : AppTheme.Danger;
+            }
+            _detailSummary?.SetStock(stock);
+        }
+
+        if (_watchlistSelectedStock?.Id == stock.Id)
+        {
+            _watchlistSummary?.SetStock(stock);
+        }
+
+        _watchlistControl?.RefreshStock(stock);
+        return true;
+    }
+
+    private void RebindMarket()
+    {
+        if (_marketTable is null)
+        {
+            return;
+        }
+
+        _marketTable.SetData(new BindingList<StockRow>(_stocks
+            .Where(stock => stock.Active && (string.IsNullOrWhiteSpace(_marketSearch)
+                || stock.Symbol.Contains(_marketSearch, StringComparison.OrdinalIgnoreCase)
+                || stock.Company.Contains(_marketSearch, StringComparison.OrdinalIgnoreCase)))
+            .ToList()));
     }
 
 }

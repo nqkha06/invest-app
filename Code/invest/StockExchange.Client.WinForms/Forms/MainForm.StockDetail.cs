@@ -50,7 +50,7 @@ public partial class MainForm : Form
             Font = AppTheme.CreateFont(28F, FontStyle.Bold),
             ForeColor = AppTheme.Text
         }, 0, 0);
-        overviewLayout.Controls.Add(new Label
+        _detailPrice = new Label
         {
             Text = $"{stock.Price:N2}",
             AutoSize = false,
@@ -59,7 +59,8 @@ public partial class MainForm : Form
             TextAlign = ContentAlignment.BottomLeft,
             Font = AppTheme.CreateFont(28F, FontStyle.Bold),
             ForeColor = AppTheme.Text
-        }, 1, 0);
+        };
+        overviewLayout.Controls.Add(_detailPrice, 1, 0);
         overviewLayout.Controls.Add(new Label
         {
             Text = $"{stock.Company} • {stock.Sector}",
@@ -70,7 +71,7 @@ public partial class MainForm : Form
             Font = AppTheme.BodyFont,
             ForeColor = AppTheme.Muted
         }, 0, 1);
-        overviewLayout.Controls.Add(new Label
+        _detailChange = new Label
         {
             Text = $"{stock.ChangePercent:+0.00;-0.00;0.00}%",
             AutoSize = false,
@@ -78,7 +79,8 @@ public partial class MainForm : Form
             TextAlign = ContentAlignment.TopLeft,
             Font = AppTheme.CreateFont(16F, FontStyle.Bold),
             ForeColor = stock.ChangePercent >= 0 ? AppTheme.Success : AppTheme.Danger
-        }, 1, 1);
+        };
+        overviewLayout.Controls.Add(_detailChange, 1, 1);
         var watch = AppTheme.CreateButton(MockData.Watchlist.Contains(stock) ? "Đã theo dõi" : "+ Watchlist");
         watch.Anchor = AnchorStyles.Right;
         watch.Margin = new Padding(AppTheme.SpaceLg, 0, 0, 0);
@@ -191,6 +193,7 @@ public partial class MainForm : Form
 
         var stockSummary = new StockSummaryControl();
         stockSummary.SetStock(stock);
+        _detailSummary = stockSummary;
         page.Controls.Add(WrapControl(stockSummary, "Tóm tắt giao dịch"), 0, 2);
 
         var metrics = new EqualColumnPanel

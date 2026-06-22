@@ -6,6 +6,7 @@ namespace StockExchange.Client.WinForms.Controls;
 public class WatchlistControl : UserControl
 {
     private readonly Dictionary<StockRow, TableLayoutPanel> _rows = [];
+    private readonly Dictionary<StockRow, (Label Price, Label Change)> _values = [];
     private readonly FlowLayoutPanel _list = new()
     {
         Dock = DockStyle.Fill,
@@ -33,6 +34,7 @@ public class WatchlistControl : UserControl
         var items = stocks.ToList();
         _list.Controls.Clear();
         _rows.Clear();
+        _values.Clear();
 
         if (items.Count == 0)
         {
@@ -101,10 +103,23 @@ public class WatchlistControl : UserControl
                 child.Click += (_, _) => SelectStock(stock);
             }
             _rows[stock] = row;
+            _values[stock] = (price, change);
             _list.Controls.Add(row);
         }
 
         ResizeRows();
+    }
+
+    public void RefreshStock(StockRow stock)
+    {
+        if (!_values.TryGetValue(stock, out var values))
+        {
+            return;
+        }
+
+        values.Price.Text = $"{stock.Price:N2}";
+        values.Change.Text = $"{stock.ChangePercent:+0.00;-0.00;0.00}%";
+        values.Change.ForeColor = stock.ChangePercent >= 0 ? AppTheme.Success : AppTheme.Danger;
     }
 
     private int GetRowWidth() =>
