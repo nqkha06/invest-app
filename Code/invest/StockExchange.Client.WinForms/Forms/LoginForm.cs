@@ -12,13 +12,10 @@ public partial class LoginForm : Form
     private readonly TextBox _username = AppTheme.CreateTextBox("Tên đăng nhập hoặc email");
     private readonly TextBox _password = AppTheme.CreateTextBox("Mật khẩu");
 
-    public LoginForm(AuthClientService authService, StockClientService stockService)
-    {   
-        
-
-        _authService = authService;
-        _stockService = stockService;
+    public LoginForm()
+    {
         _authService = new AuthClientService(_connection);
+        _stockService = new StockClientService(_connection);
         Text = "Invest App - Đăng nhập";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1050, 680);
