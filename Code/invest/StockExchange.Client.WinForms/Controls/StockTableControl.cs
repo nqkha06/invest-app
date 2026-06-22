@@ -72,6 +72,11 @@ public class StockTableControl : UserControl
         SetColumn(nameof(StockRow.Price), 90, 14F);
         SetColumn(nameof(StockRow.ChangePercent), 110, 14F);
         SetColumn(nameof(StockRow.Volume), 110, 14F);
+
+        if (_grid.Columns[nameof(StockRow.ChangePercent)] is { } changeColumn)
+        {
+            changeColumn.DefaultCellStyle.Format = "+0.00\\%;-0.00\\%;0.00\\%";
+        }
     }
 
     private void SetHeader(string name, string text)

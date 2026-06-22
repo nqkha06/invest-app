@@ -43,7 +43,7 @@ public partial class MainForm : Form
         table.StockSelected += (_, stock) =>
         {
             _selectedStock = stock;
-            Navigate("Chi tiáº¿t stock");
+            Navigate("Chi tiết stock");
         };
 
         page.Controls.Add(WrapControl(table, "Bang gia - Double click de xem chi tiet"), 0, 2);
@@ -107,7 +107,7 @@ public partial class MainForm : Form
             open.Click += (_, _) =>
             {
                 _selectedStock = stock;
-                Navigate("Chi tiáº¿t stock");
+                Navigate("Chi tiết stock");
             };
             var actions = new FlowLayoutPanel
             {

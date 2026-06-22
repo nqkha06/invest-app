@@ -25,7 +25,7 @@ public partial class MainForm : Form
     private readonly Dictionary<long, StockRow> _stockById = [];
     private readonly object _pendingPriceUpdateLock = new();
     private readonly Dictionary<long, StockPriceUpdateDto> _pendingPriceUpdates = [];
-    private readonly System.Windows.Forms.Timer _priceUpdateTimer = new() { Interval = 250 };
+    private readonly System.Windows.Forms.Timer _priceUpdateTimer = new() { Interval = 1000 };
     private StockRow _selectedStock = MockData.Stocks[0];
     private string _currentPage = string.Empty;
     private string _marketSearch = string.Empty;
