@@ -21,10 +21,5 @@ public enum MessageType
     AdminGetSimulations = 25,
     AdminUpdateSimulation = 26,
 
-    StockPriceUpdated = 40,
-
-    // Watchlist operations
-    GetWatchlist = 50,
-    AddToWatchlist = 51,
-    RemoveFromWatchlist = 52,
+    StockPriceUpdated = 40
 }
