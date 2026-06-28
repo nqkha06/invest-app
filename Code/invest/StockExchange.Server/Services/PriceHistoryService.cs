@@ -3,17 +3,6 @@ using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Server.Services;
 
-/// <summary>
-/// Fetches OHLCV candle data for chart rendering.
-///
-/// Interval logic:
-///   "1D"  → minute candles from session open (09:00 UTC) to now
-///   "1W"  → daily candles for the past 7 days
-///   "1M"  → daily candles for the past 30 days
-///   "3M"  → daily candles for the past 90 days
-///   "1Y"  → daily candles for the past 365 days
-///   Custom From/To → minute candles if span ≤ 1 day, else daily
-/// </summary>
 public class PriceHistoryService
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -23,104 +12,141 @@ public class PriceHistoryService
         _unitOfWork = unitOfWork;
     }
 
-    // -------------------------------------------------------------------------
-    //  Public API
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Returns candles for the requested symbol and interval.
-    /// Returns <c>null</c> when the symbol does not exist or is inactive.
-    /// </summary>
     public async Task<IReadOnlyList<PriceHistoryDto>?> GetAsync(
         PriceHistoryRequestDto request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        // 1. Resolve the stock by symbol
         var stock = await _unitOfWork.Stocks
             .GetBySymbolAsync(request.Symbol.Trim().ToUpperInvariant(), cancellationToken);
 
         if (stock is null || !stock.IsActive)
+        {
             return null;
+        }
 
-        // 2. Determine time range and granularity
-        var (useMinute, from, to) = ResolveRange(request);
+        var range = ResolveRange(request);
+        if (range.UseMinute)
+        {
+            var minutes = await FetchMinuteCandlesAsync(stock.Id, range.From, range.To, cancellationToken);
+            return GroupCandles(minutes, range.Bucket);
+        }
 
-        // 3. Query the correct repository and project to DTOs
-        if (useMinute)
-            return await FetchMinuteCandlesAsync(stock.Id, from, to, cancellationToken);
-
-        return await FetchDayCandlesAsync(
+        var days = await FetchDayCandlesAsync(
             stock.Id,
-            DateOnly.FromDateTime(from),
-            DateOnly.FromDateTime(to),
+            DateOnly.FromDateTime(range.From),
+            DateOnly.FromDateTime(range.To),
             cancellationToken);
+        return GroupCandles(days, range.Bucket);
     }
 
-    // -------------------------------------------------------------------------
-    //  Range resolution
-    // -------------------------------------------------------------------------
-
-    private static (bool useMinute, DateTime from, DateTime to) ResolveRange(
+    private static (bool UseMinute, DateTime From, DateTime To, Func<DateTime, DateTime> Bucket) ResolveRange(
         PriceHistoryRequestDto request)
     {
         var now = DateTime.UtcNow;
 
-        // Explicit range supplied by the caller
         if (request.From.HasValue && request.To.HasValue)
         {
-            var span = request.To.Value - request.From.Value;
-            return (span.TotalDays <= 1, request.From.Value, request.To.Value);
+            var from = NormalizeUtc(request.From.Value);
+            var to = NormalizeUtc(request.To.Value);
+            var span = to - from;
+            return (span.TotalDays <= 1, from, to, AlignToMinute);
         }
 
-        // Standard intervals
-        return request.Interval?.ToUpperInvariant() switch
+        return request.Interval?.Trim().ToUpperInvariant() switch
         {
-            "1D" => (true,  now.Date.AddHours(9),   now),
-            "1W" => (false, now.AddDays(-7).Date,   now),
-            "1M" => (false, now.AddDays(-30).Date,  now),
-            "3M" => (false, now.AddDays(-90).Date,  now),
-            "1Y" => (false, now.AddDays(-365).Date, now),
-            _    => (true,  now.Date.AddHours(9),   now),   // default → 1D
+            "1MIN" or "1P" => (true, now.AddHours(-4), now, AlignToMinute),
+            "5MIN" or "5P" => (true, now.AddDays(-1), now, time => AlignToSpan(time, TimeSpan.FromMinutes(5))),
+            "15MIN" or "15P" => (true, now.AddDays(-3), now, time => AlignToSpan(time, TimeSpan.FromMinutes(15))),
+            "30MIN" or "30P" => (true, now.AddDays(-7), now, time => AlignToSpan(time, TimeSpan.FromMinutes(30))),
+            "1H" => (true, now.AddDays(-14), now, time => AlignToSpan(time, TimeSpan.FromHours(1))),
+            "1D" => (false, now.AddDays(-180).Date, now, time => time.Date),
+            "1W" => (false, now.AddYears(-2).Date, now, AlignToWeek),
+            "1M" => (false, now.AddYears(-5).Date, now, AlignToMonth),
+            _ => (true, now.AddHours(-4), now, AlignToMinute)
         };
     }
 
-    // -------------------------------------------------------------------------
-    //  Data fetching & mapping
-    // -------------------------------------------------------------------------
-
     private async Task<IReadOnlyList<PriceHistoryDto>> FetchMinuteCandlesAsync(
-        long stockId, DateTime from, DateTime to, CancellationToken ct)
+        long stockId,
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken)
     {
         var rows = await _unitOfWork.StockPriceMinutes
-            .GetHistoryAsync(stockId, from, to, ct);
+            .GetHistoryAsync(stockId, from, to, cancellationToken);
 
-        return rows.Select(r => new PriceHistoryDto
+        return rows.Select(row => new PriceHistoryDto
         {
-            Timestamp = r.RecordedAt,
-            Open      = r.OpenPrice,
-            High      = r.HighPrice,
-            Low       = r.LowPrice,
-            Close     = r.ClosePrice,
-            Volume    = r.Volume,
+            Timestamp = row.RecordedAt,
+            Open = row.OpenPrice,
+            High = row.HighPrice,
+            Low = row.LowPrice,
+            Close = row.ClosePrice,
+            Volume = row.Volume
         }).ToList();
     }
 
     private async Task<IReadOnlyList<PriceHistoryDto>> FetchDayCandlesAsync(
-        long stockId, DateOnly from, DateOnly to, CancellationToken ct)
+        long stockId,
+        DateOnly from,
+        DateOnly to,
+        CancellationToken cancellationToken)
     {
         var rows = await _unitOfWork.StockPriceDays
-            .GetHistoryAsync(stockId, from, to, ct);
+            .GetHistoryAsync(stockId, from, to, cancellationToken);
 
-        return rows.Select(r => new PriceHistoryDto
+        return rows.Select(row => new PriceHistoryDto
         {
-            Timestamp = r.TradingDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-            Open      = r.OpenPrice,
-            High      = r.HighPrice,
-            Low       = r.LowPrice,
-            Close     = r.ClosePrice,
-            Volume    = r.Volume,
+            Timestamp = row.TradingDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
+            Open = row.OpenPrice,
+            High = row.HighPrice,
+            Low = row.LowPrice,
+            Close = row.ClosePrice,
+            Volume = row.Volume
         }).ToList();
     }
+
+    private static IReadOnlyList<PriceHistoryDto> GroupCandles(
+        IReadOnlyList<PriceHistoryDto> candles,
+        Func<DateTime, DateTime> bucket)
+    {
+        return candles
+            .GroupBy(candle => bucket(NormalizeUtc(candle.Timestamp)))
+            .OrderBy(group => group.Key)
+            .Select(group =>
+            {
+                var ordered = group.OrderBy(candle => candle.Timestamp).ToList();
+                return new PriceHistoryDto
+                {
+                    Timestamp = group.Key,
+                    Open = ordered[0].Open,
+                    High = ordered.Max(candle => candle.High),
+                    Low = ordered.Min(candle => candle.Low),
+                    Close = ordered[^1].Close,
+                    Volume = ordered.Sum(candle => candle.Volume)
+                };
+            })
+            .ToList();
+    }
+
+    private static DateTime NormalizeUtc(DateTime time) =>
+        time.Kind == DateTimeKind.Utc ? time : DateTime.SpecifyKind(time, DateTimeKind.Utc);
+
+    private static DateTime AlignToMinute(DateTime time) =>
+        AlignToSpan(time, TimeSpan.FromMinutes(1));
+
+    private static DateTime AlignToSpan(DateTime time, TimeSpan span) =>
+        new(time.Ticks - time.Ticks % span.Ticks, DateTimeKind.Utc);
+
+    private static DateTime AlignToWeek(DateTime time)
+    {
+        var date = time.Date;
+        var offset = ((int)date.DayOfWeek + 6) % 7;
+        return DateTime.SpecifyKind(date.AddDays(-offset), DateTimeKind.Utc);
+    }
+
+    private static DateTime AlignToMonth(DateTime time) =>
+        new(time.Year, time.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 }

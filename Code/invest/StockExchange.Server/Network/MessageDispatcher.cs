@@ -8,11 +8,17 @@ namespace StockExchange.Server.Network;
 public class MessageDispatcher
 {
     private readonly AuthMessageHandler _authHandler;
-    private readonly StockMessageHandler _stockHandler; // THÊM DÒNG NÀY
-    public MessageDispatcher(AuthMessageHandler authHandler,StockMessageHandler stockHandler)
+    private readonly StockMessageHandler _stockHandler;
+    private readonly ChartMessageHandler _chartHandler;
+
+    public MessageDispatcher(
+        AuthMessageHandler authHandler,
+        StockMessageHandler stockHandler,
+        ChartMessageHandler chartHandler)
     {
         _authHandler = authHandler;
         _stockHandler = stockHandler;
+        _chartHandler = chartHandler;
     }
 
     public async Task<AppMessage> DispatchAsync(
@@ -33,6 +39,7 @@ public class MessageDispatcher
                 MessageType.CreateStock => await CreateStockAsync(session, message, cancellationToken),
                 MessageType.UpdateStock => await UpdateStockAsync(session, message, cancellationToken),
                 MessageType.DeleteStock => await DeleteStockAsync(session, message, cancellationToken),
+                MessageType.GetPriceHistory => await GetPriceHistoryAsync(message, cancellationToken),
                 MessageType.AdminGetUsers => await AdminGetUsersAsync(session, message, cancellationToken),
                 MessageType.AdminCreateUser => await AdminCreateUserAsync(session, message, cancellationToken),
                 MessageType.AdminUpdateUser => await AdminUpdateUserAsync(session, message, cancellationToken),
@@ -42,7 +49,7 @@ public class MessageDispatcher
                 MessageType.AdminUpdateSimulation => await AdminUpdateSimulationAsync(session, message, cancellationToken),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
-        }   
+        }
         catch (JsonException)
         {
             return AppMessage.Failure(message.Type, message.RequestId, "Request payload is invalid.");
@@ -68,7 +75,8 @@ public class MessageDispatcher
         session.UserId = response.Success ? response.UserId : null;
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
-   private async Task<AppMessage> GetAllStocksAsync(AppMessage message)
+
+    private async Task<AppMessage> GetAllStocksAsync(AppMessage message)
     {
         var response = await _stockHandler.HandleGetAllStocksAsync();
         return AppMessage.Create(message.Type, response, message.RequestId);
@@ -111,6 +119,15 @@ public class MessageDispatcher
         var request = Deserialize<StockDeleteRequestDto>(message);
         var response = await _stockHandler.HandleDeleteStockAsync(
             RequireUser(session), request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> GetPriceHistoryAsync(
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var request = Deserialize<PriceHistoryRequestDto>(message);
+        var response = await _chartHandler.HandleGetPriceHistoryAsync(request, cancellationToken);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 

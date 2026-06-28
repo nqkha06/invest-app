@@ -12,6 +12,7 @@ public enum MessageType
     CreateStock = 7,
     UpdateStock = 8,
     DeleteStock = 9,
+    GetPriceHistory = 10,
 
     AdminGetUsers = 20,
     AdminCreateUser = 21,
