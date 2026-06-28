@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using StockExchange.Data.Context;
 using StockExchange.Shared.DTOs;
+using StockExchange.Shared.Models;
 
 namespace StockExchange.Server.BackgroundJobs;
 
@@ -93,12 +94,125 @@ public sealed class StockPriceUpdateJob
             return;
         }
 
+        await SavePriceHistoryAsync(dbContext, updates, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         foreach (var update in updates)
         {
             await broadcaster.BroadcastPriceUpdateAsync(update, cancellationToken);
         }
+    }
+
+    private async Task SavePriceHistoryAsync(
+        StockExchangeDbContext dbContext,
+        IReadOnlyList<StockPriceUpdateDto> updates,
+        CancellationToken cancellationToken)
+    {
+        if (updates.Count == 0)
+        {
+            return;
+        }
+
+        var stockIds = updates.Select(update => update.StockId).ToArray();
+        var minute = AlignToMinute(updates[0].UpdatedAt);
+        var tradingDate = DateOnly.FromDateTime(minute);
+
+        var minuteRows = await dbContext.StockPricesMinute
+            .Where(price => stockIds.Contains(price.StockId) && price.RecordedAt == minute)
+            .ToDictionaryAsync(price => price.StockId, cancellationToken);
+
+        var dayRows = await dbContext.StockPricesDay
+            .Where(price => stockIds.Contains(price.StockId) && price.TradingDate == tradingDate)
+            .ToDictionaryAsync(price => price.StockId, cancellationToken);
+
+        foreach (var update in updates)
+        {
+            var volume = CreateTickVolume(update);
+            var minuteRow = UpsertMinutePrice(dbContext, minuteRows, update, minute, volume);
+            var dayRow = UpsertDayPrice(dbContext, dayRows, update, tradingDate, volume);
+
+            update.OpenPrice = dayRow.OpenPrice;
+            update.HighPrice = dayRow.HighPrice;
+            update.LowPrice = dayRow.LowPrice;
+            update.Volume = dayRow.Volume;
+
+            minuteRow.ClosePrice = update.Price;
+        }
+    }
+
+    private static StockPriceMinute UpsertMinutePrice(
+        StockExchangeDbContext dbContext,
+        Dictionary<long, StockPriceMinute> rows,
+        StockPriceUpdateDto update,
+        DateTime minute,
+        long volume)
+    {
+        if (!rows.TryGetValue(update.StockId, out var row))
+        {
+            row = new StockPriceMinute
+            {
+                StockId = update.StockId,
+                OpenPrice = update.PreviousPrice,
+                HighPrice = Math.Max(update.PreviousPrice, update.Price),
+                LowPrice = Math.Min(update.PreviousPrice, update.Price),
+                ClosePrice = update.Price,
+                Volume = volume,
+                RecordedAt = minute
+            };
+            rows[update.StockId] = row;
+            dbContext.StockPricesMinute.Add(row);
+            return row;
+        }
+
+        row.HighPrice = Math.Max(row.HighPrice, update.Price);
+        row.LowPrice = Math.Min(row.LowPrice, update.Price);
+        row.ClosePrice = update.Price;
+        row.Volume += volume;
+        return row;
+    }
+
+    private static StockPriceDay UpsertDayPrice(
+        StockExchangeDbContext dbContext,
+        Dictionary<long, StockPriceDay> rows,
+        StockPriceUpdateDto update,
+        DateOnly tradingDate,
+        long volume)
+    {
+        if (!rows.TryGetValue(update.StockId, out var row))
+        {
+            row = new StockPriceDay
+            {
+                StockId = update.StockId,
+                OpenPrice = update.PreviousPrice,
+                HighPrice = Math.Max(update.PreviousPrice, update.Price),
+                LowPrice = Math.Min(update.PreviousPrice, update.Price),
+                ClosePrice = update.Price,
+                Volume = volume,
+                TradingDate = tradingDate
+            };
+            rows[update.StockId] = row;
+            dbContext.StockPricesDay.Add(row);
+            return row;
+        }
+
+        row.HighPrice = Math.Max(row.HighPrice, update.Price);
+        row.LowPrice = Math.Min(row.LowPrice, update.Price);
+        row.ClosePrice = update.Price;
+        row.Volume += volume;
+        return row;
+    }
+
+    private static DateTime AlignToMinute(DateTime time)
+    {
+        return new DateTime(time.Ticks - time.Ticks % TimeSpan.TicksPerMinute, DateTimeKind.Utc);
+    }
+
+    private static long CreateTickVolume(StockPriceUpdateDto update)
+    {
+        var priceBasis = Math.Max(update.Price, update.PreviousPrice);
+        var movement = Math.Abs(update.Price - update.PreviousPrice);
+        var activity = priceBasis <= 0 ? 1m : Math.Max(1m, movement / priceBasis * 10_000m);
+        return Math.Max(1L, (long)Math.Round(activity * 100m, MidpointRounding.AwayFromZero));
     }
 
     private decimal CalculateNextPrice(
