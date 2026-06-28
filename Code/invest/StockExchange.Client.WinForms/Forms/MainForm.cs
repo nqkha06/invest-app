@@ -23,10 +23,12 @@ public partial class MainForm : Form
     private readonly Label _pageTitle = AppTheme.CreateLabel("", 18F, FontStyle.Bold);
     private readonly Dictionary<string, Button> _navButtons = [];
     private readonly BindingList<StockRow> _stocks = [];
+    private readonly BindingList<StockRow> _marketRows = [];
     private readonly Dictionary<long, StockRow> _stockById = [];
     private readonly object _pendingPriceUpdateLock = new();
     private readonly Dictionary<long, StockPriceUpdateDto> _pendingPriceUpdates = [];
     private readonly System.Windows.Forms.Timer _priceUpdateTimer = new() { Interval = 1000 };
+    private int _refreshStocksInFlight;
     private StockRow _selectedStock = MockData.Stocks[0];
     private string _currentPage = string.Empty;
     private string _marketSearch = string.Empty;
@@ -61,14 +63,13 @@ public partial class MainForm : Form
         _profile = new UserProfileDto
         {
             UserId = login.UserId,
-            // Đảm bảo không có trường nào null ở đây
             Username = login.Username ?? "User",
-            Email = login.Email ?? "no-email@example.com", // Đảm bảo Email không null
+            Email = login.Email ?? "no-email@example.com",
             Role = login.Role ?? "Member",
             IsActive = true
         };
 
-        Text = $"Invest App - {(_isAdmin ? "Admin" : "Member")}";
+        Text = $"Invest App - {(_isAdmin ? "Admin" : "Thành viên")}";
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(900, 620);
@@ -115,7 +116,7 @@ public partial class MainForm : Form
         }, 0, 0);
         brand.Controls.Add(new Label
         {
-            Text = _isAdmin ? "ADMIN CONSOLE" : "MARKET TERMINAL",
+            Text = _isAdmin ? "QUẢN TRỊ" : "THỊ TRƯỜNG",
             AutoSize = true,
             Font = AppTheme.CreateFont(12F, FontStyle.Bold),
             ForeColor = Color.FromArgb(96, 165, 250),
@@ -171,7 +172,7 @@ public partial class MainForm : Form
         account.Controls.Add(_accountName, 1, 0);
         account.Controls.Add(new Label
         {
-            Text = _isAdmin ? "Administrator" : "Member",
+            Text = _isAdmin ? "Quản trị viên" : "Thành viên",
             AutoSize = false,
             Dock = DockStyle.Fill,
             AutoEllipsis = true,
@@ -278,19 +279,50 @@ public partial class MainForm : Form
 
     private async Task RefreshStocksAsync()
     {
-        var serverData = await _stockService.GetAllAsync();
-        if (IsDisposed)
+        if (Interlocked.Exchange(ref _refreshStocksInFlight, 1) == 1)
         {
             return;
         }
 
-        if (InvokeRequired)
+        try
         {
-            BeginInvoke(() => ApplyStocks(serverData));
-            return;
-        }
+            var serverData = await _stockService.GetAllAsync();
+            if (IsDisposed)
+            {
+                return;
+            }
 
-        ApplyStocks(serverData);
+            if (InvokeRequired)
+            {
+                BeginInvoke(() =>
+                {
+                    if (!IsDisposed)
+                    {
+                        ApplyStocks(serverData);
+                    }
+                });
+                return;
+            }
+
+            ApplyStocks(serverData);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (InvalidOperationException) when (IsDisposed || !IsHandleCreated)
+        {
+        }
+        catch
+        {
+            if (_stocks.Count == 0)
+            {
+                ApplyStockRows(MockData.Stocks);
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _refreshStocksInFlight, 0);
+        }
     }
 
     private void ApplyStocks(IEnumerable<Stock> serverData)
@@ -307,6 +339,35 @@ public partial class MainForm : Form
             {
                 ApplyStock(row, stock);
             }
+        }
+
+        if (_stocks.Count > 0 && !_stockById.ContainsKey(_selectedStock.Id))
+        {
+            _selectedStock = _stocks[0];
+        }
+
+        RebindMarket();
+    }
+
+    private void ApplyStockRows(IEnumerable<StockRow> rows)
+    {
+        foreach (var source in rows)
+        {
+            if (!_stockById.TryGetValue(source.Id, out var row))
+            {
+                row = new StockRow();
+                _stockById[source.Id] = row;
+                _stocks.Add(row);
+            }
+
+            row.Id = source.Id;
+            row.Symbol = source.Symbol;
+            row.Company = source.Company;
+            row.Sector = source.Sector;
+            row.Price = source.Price;
+            row.ChangePercent = source.ChangePercent;
+            row.Volume = source.Volume;
+            row.Active = source.Active;
         }
 
         if (_stocks.Count > 0 && !_stockById.ContainsKey(_selectedStock.Id))
@@ -338,6 +399,11 @@ public partial class MainForm : Form
         {
             BeginInvoke(() =>
             {
+                if (IsDisposed)
+                {
+                    return;
+                }
+
                 if (!_priceUpdateTimer.Enabled)
                 {
                     _priceUpdateTimer.Start();
@@ -354,6 +420,11 @@ public partial class MainForm : Form
 
     private void FlushPendingPriceUpdates()
     {
+        if (IsDisposed)
+        {
+            return;
+        }
+
         _priceUpdateTimer.Stop();
         List<StockPriceUpdateDto> updates;
         lock (_pendingPriceUpdateLock)
@@ -372,8 +443,6 @@ public partial class MainForm : Form
         {
             _ = RefreshStocksAsync();
         }
-
-        _marketTable?.RefreshData();
     }
 
     private bool ApplyStockPriceUpdate(StockPriceUpdateDto update)
@@ -505,11 +574,21 @@ public partial class MainForm : Form
             return;
         }
 
-        _marketTable.SetData(new BindingList<StockRow>(_stocks
+        var rows = _stocks
             .Where(stock => stock.Active && (string.IsNullOrWhiteSpace(_marketSearch)
                 || stock.Symbol.Contains(_marketSearch, StringComparison.OrdinalIgnoreCase)
                 || stock.Company.Contains(_marketSearch, StringComparison.OrdinalIgnoreCase)))
-            .ToList()));
+            .ToList();
+
+        _marketRows.RaiseListChangedEvents = false;
+        _marketRows.Clear();
+        foreach (var row in rows)
+        {
+            _marketRows.Add(row);
+        }
+        _marketRows.RaiseListChangedEvents = true;
+        _marketRows.ResetBindings();
+        _marketTable.SetData(_marketRows);
     }
 
 }

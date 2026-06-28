@@ -6,6 +6,7 @@ namespace StockExchange.Client.WinForms.Controls;
 public class StockTableControl : UserControl
 {
     private readonly DataGridView _grid = AppTheme.CreateGrid();
+    private object? _dataSource;
 
     public event EventHandler<StockRow>? StockSelected;
 
@@ -29,6 +30,12 @@ public class StockTableControl : UserControl
 
     public void SetData(object dataSource)
     {
+        if (ReferenceEquals(_dataSource, dataSource))
+        {
+            return;
+        }
+
+        _dataSource = dataSource;
         _grid.DataSource = dataSource;
         ConfigureColumns();
     }
@@ -37,7 +44,7 @@ public class StockTableControl : UserControl
 
     public void RefreshData()
     {
-        _grid.Refresh();
+        _grid.Invalidate();
     }
 
     private void RaiseSelected()

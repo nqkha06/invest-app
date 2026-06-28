@@ -93,7 +93,7 @@ public static class AppTheme
 
     public static DataGridView CreateGrid()
     {
-        var grid = new DataGridView
+        var grid = new BufferedDataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = Surface,
@@ -134,6 +134,14 @@ public static class AppTheme
         grid.ColumnHeadersHeight = 44;
         grid.RowTemplate.Height = 40;
         return grid;
+    }
+
+    private sealed class BufferedDataGridView : DataGridView
+    {
+        public BufferedDataGridView()
+        {
+            DoubleBuffered = true;
+        }
     }
 
     public static TableLayoutPanel CreatePage(int rows)
@@ -243,7 +251,7 @@ public static class AppTheme
     {
         MessageBox.Show(
             owner,
-            $"{action}\n\nĐây là thao tác minh họa trên template client. Chưa kết nối server.",
+            $"{action}\n\nĐây là thao tác minh họa. Chưa kết nối server.",
             "UI Template",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
