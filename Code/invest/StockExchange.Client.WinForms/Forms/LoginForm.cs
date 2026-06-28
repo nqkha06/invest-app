@@ -69,7 +69,7 @@ public partial class LoginForm : Form
         });
         content.Controls.Add(new Label
         {
-            Text = "Template giao diện cho hệ thống mô phỏng sàn chứng khoán: bảng giá, watchlist, biểu đồ, quản trị người dùng và cấu hình simulation.",
+            Text = "Giao diện cho hệ thống mô phỏng sàn chứng khoán: bảng giá, watchlist, biểu đồ, quản trị người dùng và cấu hình simulation.",
             AutoSize = true,
             MaximumSize = new Size(470, 0),
             Font = AppTheme.CreateFont(16F),
@@ -228,17 +228,15 @@ public partial class LoginForm : Form
                 return;
             }
 
-           Hide();
-        using var main = new MainForm(
-            response,
-            _authService,
-            _stockService,
-            _chartService,
-            _connection
-            
-        );
-        main.ShowDialog();
-        Show();
+            Hide();
+            using var main = new MainForm(
+                response,
+                _authService,
+                _stockService,
+                _chartService,
+                _connection);
+            main.ShowDialog();
+            Show();
         }
         catch (Exception ex)
         {

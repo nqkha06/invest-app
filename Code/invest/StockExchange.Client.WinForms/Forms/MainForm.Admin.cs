@@ -28,7 +28,7 @@ public partial class MainForm : Form
 
         var grid = AppTheme.CreateGrid();
         grid.DataSource = new BindingList<UserProfileDto>();
-        page.Controls.Add(WrapGrid(grid, "Recent users from server"), 0, 1);
+        page.Controls.Add(WrapGrid(grid, "Người dùng gần đây từ server"), 0, 1);
 
         async Task LoadDashboardAsync()
         {
@@ -36,16 +36,16 @@ public partial class MainForm : Form
             {
                 var dashboard = await _authService.AdminGetDashboardAsync();
                 stats.Controls.Clear();
-                stats.Controls.Add(BuildStatCard("Users", dashboard.TotalUsers.ToString("N0"), "Total database users", AppTheme.Primary));
-                stats.Controls.Add(BuildStatCard("Active stocks", dashboard.ActiveStocks.ToString("N0"), "Stocks with IsActive = true", AppTheme.Success));
-                stats.Controls.Add(BuildStatCard("Simulation configs", dashboard.SimulationConfigs.ToString("N0"), "Rows in stock_simulations", AppTheme.Warning));
-                stats.Controls.Add(BuildStatCard("Connected clients", dashboard.ConnectedClients.ToString("N0"), "Live TCP sessions", Color.FromArgb(124, 58, 237)));
+                stats.Controls.Add(BuildStatCard("Người dùng", dashboard.TotalUsers.ToString("N0"), "Tổng user trong database", AppTheme.Primary));
+                stats.Controls.Add(BuildStatCard("Cổ phiếu hoạt động", dashboard.ActiveStocks.ToString("N0"), "Stock có IsActive = true", AppTheme.Success));
+                stats.Controls.Add(BuildStatCard("Cấu hình simulation", dashboard.SimulationConfigs.ToString("N0"), "Dòng trong stock_simulations", AppTheme.Warning));
+                stats.Controls.Add(BuildStatCard("Client kết nối", dashboard.ConnectedClients.ToString("N0"), "Phiên TCP đang hoạt động", Color.FromArgb(124, 58, 237)));
                 grid.DataSource = new BindingList<UserProfileDto>(dashboard.RecentUsers);
             }
             catch (Exception ex)
             {
                 AddErrorStats();
-                MessageBox.Show(this, ex.Message, "Cannot load admin dashboard",
+                MessageBox.Show(this, ex.Message, "Không thể tải dashboard admin",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -53,19 +53,19 @@ public partial class MainForm : Form
         void AddLoadingStats()
         {
             stats.Controls.Clear();
-            stats.Controls.Add(BuildStatCard("Users", "...", "Loading from server", AppTheme.Primary));
-            stats.Controls.Add(BuildStatCard("Active stocks", "...", "Loading from server", AppTheme.Success));
-            stats.Controls.Add(BuildStatCard("Simulation configs", "...", "Loading from server", AppTheme.Warning));
-            stats.Controls.Add(BuildStatCard("Connected clients", "...", "Loading from server", Color.FromArgb(124, 58, 237)));
+            stats.Controls.Add(BuildStatCard("Người dùng", "...", "Đang tải từ server", AppTheme.Primary));
+            stats.Controls.Add(BuildStatCard("Cổ phiếu hoạt động", "...", "Đang tải từ server", AppTheme.Success));
+            stats.Controls.Add(BuildStatCard("Cấu hình simulation", "...", "Đang tải từ server", AppTheme.Warning));
+            stats.Controls.Add(BuildStatCard("Client kết nối", "...", "Đang tải từ server", Color.FromArgb(124, 58, 237)));
         }
 
         void AddErrorStats()
         {
             stats.Controls.Clear();
-            stats.Controls.Add(BuildStatCard("Users", "-", "Load failed", AppTheme.Danger));
-            stats.Controls.Add(BuildStatCard("Active stocks", "-", "Load failed", AppTheme.Danger));
-            stats.Controls.Add(BuildStatCard("Simulation configs", "-", "Load failed", AppTheme.Danger));
-            stats.Controls.Add(BuildStatCard("Connected clients", "-", "Load failed", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Người dùng", "-", "Tải thất bại", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Cổ phiếu hoạt động", "-", "Tải thất bại", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Cấu hình simulation", "-", "Tải thất bại", AppTheme.Danger));
+            stats.Controls.Add(BuildStatCard("Client kết nối", "-", "Tải thất bại", AppTheme.Danger));
         }
 
         page.HandleCreated += (_, _) => _ = LoadDashboardAsync();
@@ -153,7 +153,7 @@ public partial class MainForm : Form
             }
         };
 
-        var card = WrapGrid(grid, "Danh sách người dùng từ server • Double click để chỉnh sửa");
+        var card = WrapGrid(grid, "Danh sách người dùng từ server • Nhấp đúp để chỉnh sửa");
         var actions = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
@@ -310,7 +310,7 @@ public partial class MainForm : Form
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-        var configureSimulation = AppTheme.CreateButton("Cau hinh mo phong", false);
+        var configureSimulation = AppTheme.CreateButton("Cấu hình mô phỏng", false);
         async Task ConfigureSelectedSimulationAsync()
         {
             if (grid.CurrentRow?.DataBoundItem is not StockRow stock) return;
@@ -321,8 +321,8 @@ public partial class MainForm : Form
                 var simulation = simulations.FirstOrDefault(item => item.StockId == stock.Id);
                 if (simulation is null)
                 {
-                    MessageBox.Show(this, $"Chua co simulation config cho {stock.Symbol}.",
-                        "Khong thay cau hinh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, $"Chưa có simulation config cho {stock.Symbol}.",
+                        "Không thấy cấu hình", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -330,12 +330,12 @@ public partial class MainForm : Form
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
                 await _stockService.UpdateSimulationConfigAsync(dialog.Result);
-                MessageBox.Show(this, $"Da luu cau hinh mo phong cho {stock.Symbol}.",
-                    "Da luu", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, $"Đã lưu cấu hình mô phỏng cho {stock.Symbol}.",
+                    "Đã lưu", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Khong the cau hinh mo phong",
+                MessageBox.Show(this, ex.Message, "Không thể cấu hình mô phỏng",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -445,7 +445,7 @@ public partial class MainForm : Form
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Cannot load simulation configs",
+                MessageBox.Show(this, ex.Message, "Không thể tải cấu hình simulation",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -486,12 +486,12 @@ public partial class MainForm : Form
                 });
                 ApplySimulation(simulation, updated);
                 grid.Refresh();
-                MessageBox.Show(this, $"Saved simulation for {simulation.Symbol}.", "Saved",
+                MessageBox.Show(this, $"Đã lưu simulation cho {simulation.Symbol}.", "Đã lưu",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Cannot save simulation config",
+                MessageBox.Show(this, ex.Message, "Không thể lưu cấu hình simulation",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         };
@@ -527,20 +527,20 @@ public partial class MainForm : Form
     {
         if (minPrice >= maxPrice)
         {
-            MessageBox.Show(this, "Minimum price must be lower than maximum price.",
-                "Invalid simulation config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Giá tối thiểu phải nhỏ hơn giá tối đa.",
+                "Cấu hình simulation không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
         if (speed <= 0)
         {
-            MessageBox.Show(this, "Update speed must be greater than zero.",
-                "Invalid simulation config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Tốc độ cập nhật phải lớn hơn 0.",
+                "Cấu hình simulation không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
         if (volatility < 0 || volatility > 1 || jumpProbability < 0 || jumpProbability > 1)
         {
-            MessageBox.Show(this, "Volatility and jump probability must be between 0 and 1.",
-                "Invalid simulation config", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Volatility và xác suất jump phải nằm trong khoảng 0 đến 1.",
+                "Cấu hình simulation không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return false;
         }
 

@@ -19,13 +19,11 @@ public class StockMessageHandler
 
     public async Task<IEnumerable<Stock>> HandleGetAllStocksAsync()
     {
-        // Gọi Service lấy toàn bộ cổ phiếu
         return await _stockService.GetAllStocksAsync();
     }
 
     public async Task<IEnumerable<Stock>> HandleSearchStocksAsync(SearchStockRequestDto request)
     {
-        // Gọi Service tìm kiếm cổ phiếu theo keyword
         return await _stockService.SearchStocksAsync(request.Keyword);
     }
 

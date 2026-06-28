@@ -36,7 +36,6 @@ public class AuthService
 			return response;
 		}
 
-		// Try find by username first, then by email
 		var user = await _unitOfWork.Users.GetByUsernameAsync(request.UsernameOrEmail, cancellationToken);
 		if (user is null)
 		{
@@ -360,9 +359,9 @@ public class AuthService
 	private static UserProfileDto ToProfile(User user) => new()
 	{
 		UserId = user.Id,
-		Username = user.Username ?? "User", // Đảm bảo không null
-		Email = user.Email ?? "",           // Đảm bảo không null
-		Role = user.Role ?? "Member",       // Đảm bảo không null
+		Username = user.Username ?? "User",
+		Email = user.Email ?? "",
+		Role = user.Role ?? "Member",
 		IsActive = user.IsActive,
 		CreatedAt = user.CreatedAt
 	};

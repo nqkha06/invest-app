@@ -17,7 +17,6 @@ public class StockService
         _context = context;
     }
 
-    // 1. Logic lấy toàn bộ danh sách cổ phiếu từ bảng Stocks
     public async Task<IEnumerable<Stock>> GetAllStocksAsync()
     {
         return await _context.Stocks
@@ -40,8 +39,6 @@ public class StockService
             .CountAsync(cancellationToken);
     }
 
-    // 2. Logic tìm kiếm cổ phiếu (Kiểm tra lại xem trong file Stock.cs thuộc tính tên là gì)
-    // Nếu file Stock.cs dùng tên khác (ví dụ: Name thay vì CompanyName), bạn hãy sửa lại cho đúng nhé!
     public async Task<IEnumerable<Stock>> SearchStocksAsync(string keyword)
     {
         if (string.IsNullOrWhiteSpace(keyword))

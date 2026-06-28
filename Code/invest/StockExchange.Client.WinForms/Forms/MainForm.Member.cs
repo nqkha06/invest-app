@@ -22,11 +22,11 @@ public partial class MainForm : Form
             Padding = new Padding(0, 0, 0, 10)
         };
         summary.Controls.Add(BuildStatCard("VN-INDEX", "1,284.21", "+8.42 (+0.66%)", AppTheme.Success));
-        summary.Controls.Add(BuildStatCard("Liquidity", "18,420 ty", "Volume 642M", AppTheme.Primary));
-        summary.Controls.Add(BuildStatCard("Breadth", "238 up", "92 down - 61 flat", AppTheme.Warning));
+        summary.Controls.Add(BuildStatCard("Thanh khoản", "18,420 tỷ", "Volume 642M", AppTheme.Primary));
+        summary.Controls.Add(BuildStatCard("Độ rộng thị trường", "238 tăng", "92 giảm - 61 đứng giá", AppTheme.Warning));
         page.Controls.Add(summary, 0, 0);
 
-        var toolbar = BuildToolbar("Tim kiem co phieu...", "Refresh", out var search, out var refresh);
+        var toolbar = BuildToolbar("Tìm kiếm cổ phiếu...", "Làm mới", out var search, out var refresh);
         refresh.Click += async (_, _) => await RefreshStocksAsync();
         page.Controls.Add(toolbar, 0, 1);
 
@@ -46,7 +46,7 @@ public partial class MainForm : Form
             Navigate("Chi tiết stock");
         };
 
-        page.Controls.Add(WrapControl(table, "Bang gia - Double click de xem chi tiet"), 0, 2);
+        page.Controls.Add(WrapControl(table, "Bảng giá - Nhấp đúp để xem chi tiết"), 0, 2);
         return page;
     }
 
@@ -68,7 +68,7 @@ public partial class MainForm : Form
         _watchlistControl = list;
         var watchlistStocks = GetWatchlistStocks();
         list.SetStocks(watchlistStocks);
-        page.Controls.Add(WrapControl(list, "Danh sach theo doi"), 0, 0);
+        page.Controls.Add(WrapControl(list, "Danh sách theo dõi"), 0, 0);
 
         var detailHost = AppTheme.CreateCard();
         detailHost.Dock = DockStyle.Fill;
@@ -101,7 +101,7 @@ public partial class MainForm : Form
             summary.SetStock(stock);
             _watchlistSummary = summary;
 
-            var open = AppTheme.CreateButton("Xem chi tiet");
+            var open = AppTheme.CreateButton("Xem chi tiết");
             open.Anchor = AnchorStyles.Right;
             open.Margin = new Padding(0, AppTheme.SpaceMd, 0, 0);
             open.Click += (_, _) =>
@@ -133,7 +133,7 @@ public partial class MainForm : Form
         {
             detailHost.Controls.Add(new Label
             {
-                Text = "Chon co phieu tu thi truong de xem watchlist.",
+                Text = "Chọn cổ phiếu từ thị trường để xem watchlist.",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Font = AppTheme.BodyFont,
@@ -184,14 +184,14 @@ public partial class MainForm : Form
             Margin = new Padding(48, 15, 0, 18)
         };
         var summaryName = AppTheme.CreateLabel(_username, 16F, FontStyle.Bold);
-        var memberSince = AppTheme.CreateLabel("Dang tai thong tin...", 9F, FontStyle.Regular, AppTheme.Muted);
-        var status = AppTheme.CreateLabel("Trang thai: Active", 10F, FontStyle.Regular, AppTheme.Success);
+        var memberSince = AppTheme.CreateLabel("Đang tải thông tin...", 9F, FontStyle.Regular, AppTheme.Muted);
+        var status = AppTheme.CreateLabel("Trạng thái: Hoạt động", 10F, FontStyle.Regular, AppTheme.Success);
         summaryFlow.Controls.Add(avatar);
         summaryFlow.Controls.Add(summaryName);
-        summaryFlow.Controls.Add(AppTheme.CreateLabel(_isAdmin ? "Administrator" : "Member", 10F, FontStyle.Bold, AppTheme.Primary));
+        summaryFlow.Controls.Add(AppTheme.CreateLabel(_isAdmin ? "Quản trị viên" : "Thành viên", 10F, FontStyle.Bold, AppTheme.Primary));
         summaryFlow.Controls.Add(memberSince);
         summaryFlow.Controls.Add(new Panel { Width = 1, Height = 20 });
-        summaryFlow.Controls.Add(AppTheme.CreateLabel($"Watchlist: {GetWatchlistStocks().Count} ma", 10F, FontStyle.Regular));
+        summaryFlow.Controls.Add(AppTheme.CreateLabel($"Watchlist: {GetWatchlistStocks().Count} mã", 10F, FontStyle.Regular));
         summaryFlow.Controls.Add(status);
         summary.Controls.Add(summaryFlow);
         page.Controls.Add(summary, 0, 0);
@@ -205,12 +205,12 @@ public partial class MainForm : Form
             WrapContents = false,
             AutoScroll = true
         };
-        form.Controls.Add(AppTheme.CreateLabel("Thong tin ca nhan", 17F, FontStyle.Bold));
-        form.Controls.Add(AppTheme.CreateLabel("Cap nhat thong tin co ban cua tai khoan.", 9.5F, FontStyle.Regular, AppTheme.Muted));
+        form.Controls.Add(AppTheme.CreateLabel("Thông tin cá nhân", 17F, FontStyle.Bold));
+        form.Controls.Add(AppTheme.CreateLabel("Cập nhật thông tin cơ bản của tài khoản.", 9.5F, FontStyle.Regular, AppTheme.Muted));
         form.Controls.Add(new Panel { Width = 1, Height = 14 });
-        var username = AddTextField(form, "Ten dang nhap", _username);
+        var username = AddTextField(form, "Tên đăng nhập", _username);
         var email = AddTextField(form, "Email", _profile.Email);
-        var save = AppTheme.CreateButton("Luu thay doi");
+        var save = AppTheme.CreateButton("Lưu thay đổi");
         save.Width = 360;
         save.Click += async (_, _) =>
         {
@@ -219,12 +219,12 @@ public partial class MainForm : Form
             {
                 _profile = await _authService.UpdateProfileAsync(username.Text.Trim(), email.Text.Trim());
                 ApplyProfile(_profile, username, email, avatar, summaryName, memberSince, status);
-                MessageBox.Show(this, "Cap nhat ho so thanh cong.", "Thanh cong",
+                MessageBox.Show(this, "Cập nhật hồ sơ thành công.", "Thành công",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Khong the cap nhat ho so",
+                MessageBox.Show(this, ex.Message, "Không thể cập nhật hồ sơ",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
@@ -259,7 +259,7 @@ public partial class MainForm : Form
         {
             if (!IsDisposed && !username.IsDisposed)
             {
-                MessageBox.Show(this, ex.Message, "Khong the tai ho so",
+                MessageBox.Show(this, ex.Message, "Không thể tải hồ sơ",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -279,8 +279,8 @@ public partial class MainForm : Form
         email.Text = profile.Email;
         avatar.Text = !string.IsNullOrEmpty(profile.Username) ? profile.Username[..1].ToUpperInvariant() : "?";
         summaryName.Text = profile.Username;
-        memberSince.Text = $"Thanh vien tu {profile.CreatedAt:yyyy}";
-        status.Text = profile.IsActive ? "Trang thai: Active" : "Trang thai: Inactive";
+        memberSince.Text = $"Thành viên từ {profile.CreatedAt:yyyy}";
+        status.Text = profile.IsActive ? "Trạng thái: Hoạt động" : "Trạng thái: Ngừng hoạt động";
         status.ForeColor = profile.IsActive ? AppTheme.Success : AppTheme.Danger;
         _accountName.Text = profile.Username;
         _accountAvatar.Text = avatar.Text;

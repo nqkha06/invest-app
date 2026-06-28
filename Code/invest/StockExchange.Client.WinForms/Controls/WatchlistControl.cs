@@ -40,7 +40,7 @@ public class WatchlistControl : UserControl
         {
             _list.Controls.Add(new Label
             {
-                Text = "Watchlist chưa có cổ phiếu.",
+                Text = "Bạn chưa theo dõi bất kỳ cổ phiếu nào.",
                 AutoSize = true,
                 Font = AppTheme.BodyFont,
                 ForeColor = AppTheme.Muted,

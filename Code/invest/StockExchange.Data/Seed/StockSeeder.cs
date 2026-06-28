@@ -9,7 +9,7 @@ public static class StockSeeder
     public static async Task SeedAsync(StockExchangeDbContext context)
     {
         if (await context.Stocks.AnyAsync())
-            return; // Đã có dữ liệu
+            return;
 
         var stocks = new List<Stock>
         {

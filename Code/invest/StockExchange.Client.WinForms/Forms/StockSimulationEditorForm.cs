@@ -42,15 +42,15 @@ public sealed class StockSimulationEditorForm : Form
         content.Controls.Add(form);
 
         form.Controls.Add(AppTheme.CreateLabel($"{simulation.Symbol} - {simulation.CompanyName}", 16F, FontStyle.Bold));
-        form.Controls.Add(AppTheme.CreateLabel("Cau hinh thuat toan mo phong gia.", 9F, FontStyle.Regular, AppTheme.Muted));
+        form.Controls.Add(AppTheme.CreateLabel("Cấu hình thuật toán mô phỏng giá.", 9F, FontStyle.Regular, AppTheme.Muted));
 
-        _algorithm = AddComboField(form, "Thuat toan", ["RandomWalk", "MeanReversion", "TrendFollowing"]);
+        _algorithm = AddComboField(form, "Thuật toán", ["RandomWalk", "MeanReversion", "TrendFollowing"]);
         _volatility = AddNumericField(form, "Volatility", 4, simulation.Volatility);
         _trend = AddNumericField(form, "Trend factor", 4, simulation.TrendFactor);
-        _minPrice = AddNumericField(form, "Gia toi thieu", 2, simulation.MinPrice, 1_000_000);
-        _maxPrice = AddNumericField(form, "Gia toi da", 2, simulation.MaxPrice, 1_000_000);
-        _speed = AddNumericField(form, "Toc do cap nhat (giay)", 2, simulation.UpdateSpeed, 60);
-        _jump = AddNumericField(form, "Xac suat jump", 4, simulation.JumpProbability);
+        _minPrice = AddNumericField(form, "Giá tối thiểu", 2, simulation.MinPrice, 1_000_000);
+        _maxPrice = AddNumericField(form, "Giá tối đa", 2, simulation.MaxPrice, 1_000_000);
+        _speed = AddNumericField(form, "Tốc độ cập nhật (giây)", 2, simulation.UpdateSpeed, 60);
+        _jump = AddNumericField(form, "Xác suất jump", 4, simulation.JumpProbability);
 
         _algorithm.SelectedItem = string.IsNullOrWhiteSpace(simulation.AlgorithmType)
             ? "RandomWalk"
@@ -63,8 +63,8 @@ public sealed class StockSimulationEditorForm : Form
             FlowDirection = FlowDirection.RightToLeft,
             Margin = new Padding(0, 12, 0, 0)
         };
-        var save = AppTheme.CreateButton("Luu cau hinh");
-        var cancel = AppTheme.CreateButton("Huy", false);
+        var save = AppTheme.CreateButton("Lưu cấu hình");
+        var cancel = AppTheme.CreateButton("Hủy", false);
         actions.Controls.Add(save);
         actions.Controls.Add(cancel);
         form.Controls.Add(actions);
@@ -81,15 +81,15 @@ public sealed class StockSimulationEditorForm : Form
     {
         if (_minPrice.Value >= _maxPrice.Value)
         {
-            MessageBox.Show(this, "Gia toi thieu phai nho hon gia toi da.",
-                "Cau hinh khong hop le", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Giá tối thiểu phải nhỏ hơn giá tối đa.",
+                "Cấu hình không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         if (_speed.Value <= 0)
         {
-            MessageBox.Show(this, "Toc do cap nhat phai lon hon 0.",
-                "Cau hinh khong hop le", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Tốc độ cập nhật phải lớn hơn 0.",
+                "Cấu hình không hợp lệ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 

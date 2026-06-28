@@ -55,7 +55,7 @@ public sealed class ClientConnectionService : IAsyncDisposable
         catch (SocketException ex)
         {
             ResetConnection();
-            throw new IOException("Khong the ket noi toi server. Hay kiem tra server dang chay.", ex);
+            throw new IOException("Không thể kết nối tới server. Hãy kiểm tra server đang chạy.", ex);
         }
         finally
         {
