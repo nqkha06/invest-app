@@ -9,6 +9,7 @@ public partial class LoginForm : Form
     private readonly ClientConnectionService _connection = new();
     private readonly AuthClientService _authService;
     private readonly StockClientService _stockService;
+    private readonly ChartClientService _chartService;
     private readonly TextBox _username = AppTheme.CreateTextBox("Tên đăng nhập hoặc email");
     private readonly TextBox _password = AppTheme.CreateTextBox("Mật khẩu");
 
@@ -16,6 +17,7 @@ public partial class LoginForm : Form
     {
         _authService = new AuthClientService(_connection);
         _stockService = new StockClientService(_connection);
+        _chartService = new ChartClientService(_connection);
         Text = "Invest App - Đăng nhập";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1050, 680);
@@ -231,6 +233,7 @@ public partial class LoginForm : Form
             response,
             _authService,
             _stockService,
+            _chartService,
             _connection
             
         );

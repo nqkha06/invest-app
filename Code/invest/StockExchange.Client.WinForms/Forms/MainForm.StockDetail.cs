@@ -2,6 +2,7 @@ using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Client.WinForms.Mock;
+using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -103,6 +104,7 @@ public partial class MainForm : Form
         page.Controls.Add(overview, 0, 0);
 
         var candleChart = new CandlestickChartControl { Dock = DockStyle.Fill };
+        _detailChart = candleChart;
         var chartCard = AppTheme.CreateCard();
         chartCard.Dock = DockStyle.Fill;
         var chartLayout = AppTheme.CreatePage(2);
@@ -118,7 +120,7 @@ public partial class MainForm : Form
             Margin = Padding.Empty
         };
         chartToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        chartToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 470F));
+        chartToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 720F));
         chartToolbar.Controls.Add(
             AppTheme.CreateLabel("Biểu đồ nến OHLCV • Cuộn để zoom, kéo ngang để pan", 14F, FontStyle.Bold),
             0,
@@ -134,9 +136,33 @@ public partial class MainForm : Form
         };
         var intervalButtons = new List<Button>();
 
-        void LoadCandles(Button activeButton, int count, int visibleCount, TimeSpan interval)
+        async Task LoadCandlesAsync(Button activeButton, string intervalCode, int count, int visibleCount, TimeSpan interval)
         {
-            candleChart.SetCandles(MockData.BuildCandles(stock, count, interval), visibleCount);
+            _detailCandleInterval = interval;
+            _detailChartInterval = intervalCode;
+            _detailCandleMaxCount = count;
+            _detailCandles.Clear();
+            try
+            {
+                var history = await _chartService.GetHistoryAsync(stock.Symbol, intervalCode);
+                _detailCandles.AddRange(history.Select(ToCandlePoint));
+            }
+            catch
+            {
+                _detailCandles.Clear();
+            }
+
+            if (_detailCandles.Count == 0)
+            {
+                _detailCandles.AddRange(MockData.BuildCandles(stock, count, interval));
+            }
+
+            while (_detailCandles.Count > count)
+            {
+                _detailCandles.RemoveAt(0);
+            }
+
+            candleChart.SetCandles(_detailCandles, visibleCount);
             foreach (var button in intervalButtons)
             {
                 var active = ReferenceEquals(button, activeButton);
@@ -148,17 +174,33 @@ public partial class MainForm : Form
 
         foreach (var option in new[]
                  {
-                     (Text: "1D", Count: 96, Visible: 72, Interval: TimeSpan.FromMinutes(5)),
-                     (Text: "1W", Count: 120, Visible: 80, Interval: TimeSpan.FromHours(1)),
-                     (Text: "1M", Count: 90, Visible: 65, Interval: TimeSpan.FromHours(8)),
-                     (Text: "3M", Count: 120, Visible: 75, Interval: TimeSpan.FromDays(1))
+                     (Text: "1p", Count: 240, Visible: 120, Interval: TimeSpan.FromMinutes(1)),
+                     (Text: "5p", Count: 240, Visible: 120, Interval: TimeSpan.FromMinutes(5)),
+                     (Text: "15p", Count: 192, Visible: 96, Interval: TimeSpan.FromMinutes(15)),
+                     (Text: "30p", Count: 192, Visible: 96, Interval: TimeSpan.FromMinutes(30)),
+                     (Text: "1h", Count: 168, Visible: 84, Interval: TimeSpan.FromHours(1)),
+                     (Text: "Ngày", Count: 180, Visible: 90, Interval: TimeSpan.FromDays(1)),
+                     (Text: "Tuần", Count: 104, Visible: 52, Interval: TimeSpan.FromDays(7)),
+                     (Text: "Tháng", Count: 60, Visible: 36, Interval: TimeSpan.FromDays(30))
                  })
         {
             var button = AppTheme.CreateButton(option.Text, false);
-            button.Width = 54;
+            button.Width = option.Text.Length > 3 ? 66 : 54;
             button.Height = 36;
             button.Margin = new Padding(AppTheme.SpaceXs, 0, 0, 0);
-            button.Click += (_, _) => LoadCandles(button, option.Count, option.Visible, option.Interval);
+            var intervalCode = option.Text switch
+            {
+                "1p" => "1MIN",
+                "5p" => "5MIN",
+                "15p" => "15MIN",
+                "30p" => "30MIN",
+                "1h" => "1H",
+                "Ngày" => "1D",
+                "Tuần" => "1W",
+                "Tháng" => "1M",
+                _ => "5MIN"
+            };
+            button.Click += async (_, _) => await LoadCandlesAsync(button, intervalCode, option.Count, option.Visible, option.Interval);
             intervalButtons.Add(button);
             intervals.Controls.Add(button);
         }
@@ -189,7 +231,7 @@ public partial class MainForm : Form
         chartLayout.Controls.Add(candleChart, 0, 1);
         chartCard.Controls.Add(chartLayout);
         page.Controls.Add(chartCard, 0, 1);
-        LoadCandles(intervalButtons[0], 96, 72, TimeSpan.FromMinutes(5));
+        _ = LoadCandlesAsync(intervalButtons[0], "1MIN", 240, 120, TimeSpan.FromMinutes(1));
 
         var stockSummary = new StockSummaryControl();
         stockSummary.SetStock(stock);
@@ -208,6 +250,23 @@ public partial class MainForm : Form
         metrics.Controls.Add(BuildStatCard("Khối lượng", $"{stock.Volume:N0}", "Cổ phiếu", AppTheme.Warning));
         page.Controls.Add(metrics, 0, 3);
         return scrollHost;
+    }
+
+    private static CandlePoint ToCandlePoint(PriceHistoryDto point)
+    {
+        var time = point.Timestamp.TimeOfDay == TimeSpan.Zero
+            ? DateTime.SpecifyKind(point.Timestamp.Date, DateTimeKind.Unspecified)
+            : point.Timestamp.ToLocalTime();
+
+        return new CandlePoint
+        {
+            Time = time,
+            Open = point.Open,
+            High = point.High,
+            Low = point.Low,
+            Close = point.Close,
+            Volume = point.Volume
+        };
     }
 
 }

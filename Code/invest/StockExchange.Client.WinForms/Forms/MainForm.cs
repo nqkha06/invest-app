@@ -14,6 +14,7 @@ public partial class MainForm : Form
     private readonly bool _isAdmin;
     private readonly AuthClientService _authService;
     private readonly StockClientService _stockService;
+    private readonly ChartClientService _chartService;
     private readonly ClientConnectionService _connection;
     private UserProfileDto _profile;
     private readonly Label _accountName = new();
@@ -36,17 +37,24 @@ public partial class MainForm : Form
     private Label? _detailPrice;
     private Label? _detailChange;
     private StockSummaryControl? _detailSummary;
+    private CandlestickChartControl? _detailChart;
+    private readonly List<CandlePoint> _detailCandles = [];
+    private TimeSpan _detailCandleInterval = TimeSpan.FromMinutes(5);
+    private string _detailChartInterval = "5MIN";
+    private int _detailCandleMaxCount = 96;
 
     public MainForm(
         LoginResponseDto login,
         AuthClientService authService,
         StockClientService stockService,
+        ChartClientService chartService,
         ClientConnectionService connection)
     {
         _username = login.Username ?? "User"; 
         _isAdmin = string.Equals(login.Role, "Admin", StringComparison.OrdinalIgnoreCase);
         _authService = authService;
         _stockService = stockService;
+        _chartService = chartService;
         _connection = connection;
         _connection.StockPriceUpdated += HandleStockPriceUpdated;
         _priceUpdateTimer.Tick += (_, _) => FlushPendingPriceUpdates();
@@ -241,6 +249,8 @@ public partial class MainForm : Form
         _detailPrice = null;
         _detailChange = null;
         _detailSummary = null;
+        _detailChart = null;
+        _detailCandles.Clear();
         _pageTitle.Text = page;
         foreach (var pair in _navButtons)
         {
@@ -375,6 +385,10 @@ public partial class MainForm : Form
 
         stock.Price = update.Price;
         stock.ChangePercent = update.ChangePercent;
+        if (update.Volume > 0)
+        {
+            stock.Volume = update.Volume;
+        }
 
         if (_selectedStock.Id == stock.Id)
         {
@@ -386,6 +400,7 @@ public partial class MainForm : Form
                 _detailChange.ForeColor = stock.ChangePercent >= 0 ? AppTheme.Success : AppTheme.Danger;
             }
             _detailSummary?.SetStock(stock);
+            UpdateDetailChart(update);
         }
 
         if (_watchlistSelectedStock?.Id == stock.Id)
@@ -395,6 +410,92 @@ public partial class MainForm : Form
 
         _watchlistControl?.RefreshStock(stock);
         return true;
+    }
+
+    private void UpdateDetailChart(StockPriceUpdateDto update)
+    {
+        if (_detailChart is null || _detailCandles.Count == 0)
+        {
+            return;
+        }
+
+        var time = AlignDetailTime(update.UpdatedAt.ToLocalTime());
+        var previous = _detailCandles[^1];
+        CandlePoint candle;
+
+        if (previous.Time == time)
+        {
+            var close = update.Price;
+            var tickVolume = CreateChartTickVolume(update);
+            candle = new CandlePoint
+            {
+                Time = previous.Time,
+                Open = previous.Open,
+                High = Math.Max(Math.Max(previous.High, close), update.PreviousPrice),
+                Low = Math.Min(Math.Min(previous.Low, close), update.PreviousPrice),
+                Close = close,
+                Volume = Math.Max(1, previous.Volume + tickVolume)
+            };
+            _detailCandles[^1] = candle;
+        }
+        else
+        {
+            var open = update.PreviousPrice > 0 ? update.PreviousPrice : previous.Close;
+            var close = update.Price;
+            var tickVolume = CreateChartTickVolume(update);
+            candle = new CandlePoint
+            {
+                Time = time,
+                Open = decimal.Round(open, 2),
+                High = decimal.Round(Math.Max(open, close), 2),
+                Low = decimal.Round(Math.Min(open, close), 2),
+                Close = decimal.Round(close, 2),
+                Volume = tickVolume
+            };
+            _detailCandles.Add(candle);
+            while (_detailCandles.Count > _detailCandleMaxCount)
+            {
+                _detailCandles.RemoveAt(0);
+            }
+        }
+
+        _detailChart.AddOrUpdateCandle(candle, _detailCandleMaxCount);
+    }
+
+    private static long CreateChartTickVolume(StockPriceUpdateDto update)
+    {
+        var priceBasis = Math.Max(update.Price, update.PreviousPrice);
+        var movement = Math.Abs(update.Price - update.PreviousPrice);
+        var activity = priceBasis <= 0 ? 1m : Math.Max(1m, movement / priceBasis * 10_000m);
+        return Math.Max(1L, (long)Math.Round(activity * 100m, MidpointRounding.AwayFromZero));
+    }
+
+    private DateTime AlignDetailTime(DateTime time)
+    {
+        return _detailChartInterval switch
+        {
+            "1D" => time.Date,
+            "1W" => AlignToWeek(time),
+            "1M" => new DateTime(time.Year, time.Month, 1),
+            _ => AlignToInterval(time, _detailCandleInterval)
+        };
+    }
+
+    private static DateTime AlignToInterval(DateTime time, TimeSpan interval)
+    {
+        if (interval <= TimeSpan.Zero)
+        {
+            return time;
+        }
+
+        return new DateTime(time.Ticks - time.Ticks % interval.Ticks, time.Kind);
+    }
+
+    private static DateTime AlignToWeek(DateTime time)
+    {
+        var date = time.Date;
+        var offset = ((int)date.DayOfWeek + 6) % 7;
+        return date.AddDays(-offset);
     }
 
     private void RebindMarket()

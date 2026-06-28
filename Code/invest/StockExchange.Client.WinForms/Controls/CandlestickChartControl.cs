@@ -9,7 +9,7 @@ public sealed class CandlestickChartControl : Control
     private const int PriceAxisWidth = 72;
     private const int TimeAxisHeight = 28;
     private const int VolumeHeight = 72;
-    private IReadOnlyList<CandlePoint> _candles = Array.Empty<CandlePoint>();
+    private readonly List<CandlePoint> _candles = [];
     private int _hoverIndex = -1;
     private int _viewStart;
     private int _visibleCount;
@@ -31,10 +31,40 @@ public sealed class CandlestickChartControl : Control
 
     public void SetCandles(IReadOnlyList<CandlePoint> candles, int defaultVisibleCount = 80)
     {
-        _candles = candles;
-        _defaultVisibleCount = Math.Clamp(defaultVisibleCount, 1, Math.Max(1, candles.Count));
+        _candles.Clear();
+        _candles.AddRange(candles);
+        _defaultVisibleCount = Math.Clamp(defaultVisibleCount, 1, Math.Max(1, _candles.Count));
         _hoverIndex = -1;
         ResetView();
+    }
+
+    public void AddOrUpdateCandle(CandlePoint candle, int maxCandles)
+    {
+        var wasAtLiveEdge = _viewStart + _visibleCount >= _candles.Count;
+        var removed = 0;
+
+        if (_candles.Count > 0 && _candles[^1].Time == candle.Time)
+        {
+            _candles[^1] = candle;
+        }
+        else
+        {
+            _candles.Add(candle);
+        }
+
+        while (_candles.Count > Math.Max(1, maxCandles))
+        {
+            _candles.RemoveAt(0);
+            removed++;
+        }
+
+        _defaultVisibleCount = Math.Clamp(_defaultVisibleCount, 1, Math.Max(1, _candles.Count));
+        _visibleCount = Math.Clamp(_visibleCount, Math.Min(1, _candles.Count), _candles.Count);
+        _viewStart = wasAtLiveEdge
+            ? Math.Max(0, _candles.Count - _visibleCount)
+            : Math.Max(0, _viewStart - removed);
+        _hoverIndex = _hoverIndex < removed ? -1 : _hoverIndex - removed;
+        Invalidate();
     }
 
     public void ZoomIn() => ZoomBy(-Math.Max(2, _visibleCount / 5), GetZoomAnchor());
@@ -94,11 +124,16 @@ public sealed class CandlestickChartControl : Control
         {
             var slot = plot.Width / (float)Math.Max(1, _visibleCount);
             var shift = (int)Math.Round((_panStartX - eventArgs.X) / Math.Max(1F, slot));
-            _viewStart = Math.Clamp(_panStartIndex + shift, 0, Math.Max(0, _candles.Count - _visibleCount));
-            Invalidate();
+            var nextViewStart = Math.Clamp(_panStartIndex + shift, 0, Math.Max(0, _candles.Count - _visibleCount));
+            if (_viewStart != nextViewStart)
+            {
+                _viewStart = nextViewStart;
+                Invalidate();
+            }
             return;
         }
 
+        var previousHoverIndex = _hoverIndex;
         if (_candles.Count == 0 || !plot.Contains(eventArgs.Location))
         {
             _hoverIndex = -1;
@@ -107,7 +142,10 @@ public sealed class CandlestickChartControl : Control
         {
             _hoverIndex = GetIndexAtX(eventArgs.X);
         }
-        Invalidate();
+        if (_hoverIndex != previousHoverIndex)
+        {
+            Invalidate();
+        }
     }
 
     protected override void OnMouseLeave(EventArgs eventArgs)
@@ -133,10 +171,18 @@ public sealed class CandlestickChartControl : Control
         }
 
         var visible = GetVisibleCandles();
-        var minimum = visible.Min(candle => candle.Low);
-        var maximum = visible.Max(candle => candle.High);
+        var minimum = visible[0].Low;
+        var maximum = visible[0].High;
+        var maxVolume = Math.Max(1L, visible[0].Volume);
+        for (var index = 1; index < visible.Count; index++)
+        {
+            var candle = visible[index];
+            minimum = Math.Min(minimum, candle.Low);
+            maximum = Math.Max(maximum, candle.High);
+            maxVolume = Math.Max(maxVolume, candle.Volume);
+        }
+
         var priceRange = Math.Max(0.01m, maximum - minimum);
-        var maxVolume = Math.Max(1L, visible.Max(candle => candle.Volume));
 
         DrawGrid(eventArgs.Graphics, priceBounds, minimum, maximum);
         DrawTimeAxis(eventArgs.Graphics, priceBounds, visible);
@@ -281,7 +327,7 @@ public sealed class CandlestickChartControl : Control
     {
         var count = Math.Clamp(_visibleCount, 1, _candles.Count);
         var start = Math.Clamp(_viewStart, 0, _candles.Count - count);
-        return _candles.Skip(start).Take(count).ToArray();
+        return _candles.GetRange(start, count);
     }
 
     private int GetIndexAtX(int x)
