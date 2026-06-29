@@ -1,6 +1,6 @@
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Client.WinForms.Forms;
@@ -66,8 +66,7 @@ public partial class MainForm : Form
 
         var list = new WatchlistControl { Dock = DockStyle.Fill };
         _watchlistControl = list;
-        var watchlistStocks = GetWatchlistStocks();
-        list.SetStocks(watchlistStocks);
+        list.SetStocks(GetWatchlistStocks());
         page.Controls.Add(WrapControl(list, "Danh sách theo dõi"), 0, 0);
 
         var detailHost = AppTheme.CreateCard();
@@ -125,12 +124,10 @@ public partial class MainForm : Form
         }
 
         list.StockSelected += (_, stock) => ShowMiniDetail(stock);
-        if (watchlistStocks.FirstOrDefault() is { } initialStock)
+
+        void ShowEmptyWatchlist()
         {
-            list.SelectStock(initialStock);
-        }
-        else
-        {
+            detailHost.Controls.Clear();
             detailHost.Controls.Add(new Label
             {
                 Text = "Chọn cổ phiếu từ thị trường để xem watchlist.",
@@ -141,14 +138,42 @@ public partial class MainForm : Form
             });
         }
 
+        async Task LoadWatchlistPageAsync()
+        {
+            await RefreshWatchlistAsync();
+            if (list.IsDisposed)
+            {
+                return;
+            }
+
+            var watchlistStocks = GetWatchlistStocks();
+            list.SetStocks(watchlistStocks);
+            if (watchlistStocks.FirstOrDefault() is { } loadedStock)
+            {
+                list.SelectStock(loadedStock);
+            }
+            else
+            {
+                ShowEmptyWatchlist();
+            }
+        }
+
+        if (GetWatchlistStocks().FirstOrDefault() is { } initialStock)
+        {
+            list.SelectStock(initialStock);
+        }
+        else
+        {
+            ShowEmptyWatchlist();
+        }
+
+        _ = LoadWatchlistPageAsync();
         return page;
     }
 
     private List<StockRow> GetWatchlistStocks()
     {
-        var symbols = MockData.Watchlist.Select(stock => stock.Symbol).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var stocks = _stocks.Where(stock => symbols.Contains(stock.Symbol)).ToList();
-        return stocks.Count == 0 ? MockData.Watchlist.ToList() : stocks;
+        return _stocks.Where(stock => _watchlistStockIds.Contains(stock.Id)).ToList();
     }
 
     private Control BuildProfilePage()
@@ -211,7 +236,7 @@ public partial class MainForm : Form
         var username = AddTextField(form, "Tên đăng nhập", _username);
         var email = AddTextField(form, "Email", _profile.Email);
         var save = AppTheme.CreateButton("Lưu thay đổi");
-        save.Width = 360;
+        save.Width = 480;
         save.Click += async (_, _) =>
         {
             save.Enabled = false;

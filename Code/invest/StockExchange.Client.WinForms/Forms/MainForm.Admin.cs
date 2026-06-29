@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 using StockExchange.Shared.DTOs;
 using StockExchange.Shared.Models;
 

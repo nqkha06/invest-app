@@ -29,6 +29,7 @@ internal static class Program
         services.AddScoped<ChartMessageHandler>();
         
         services.AddScoped<StockMessageHandler>();
+        services.AddScoped<WatchlistMessageHandler>();
         services.AddScoped<MessageDispatcher>();
         services.AddScoped<StockService>();
         services.AddScoped<StockSimulationService>();

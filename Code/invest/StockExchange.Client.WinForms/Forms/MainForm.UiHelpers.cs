@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -112,13 +112,14 @@ public partial class MainForm : Form
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         search = AppTheme.CreateTextBox(placeholder);
-        search.Dock = DockStyle.Fill;
-        search.Margin = new Padding(0, 0, AppTheme.SpaceMd, 0);
+        var searchFrame = AppTheme.CreateInputFrame(search);
+        searchFrame.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        searchFrame.Margin = new Padding(0, 0, AppTheme.SpaceMd, 0);
         var actionButton = AppTheme.CreateButton(actionText);
         actionButton.Anchor = AnchorStyles.Right;
         actionButton.Margin = Padding.Empty;
         action = actionButton;
-        toolbar.Controls.Add(search, 0, 0);
+        toolbar.Controls.Add(searchFrame, 0, 0);
         toolbar.Controls.Add(actionButton, 2, 0);
         return toolbar;
     }
@@ -163,9 +164,9 @@ public partial class MainForm : Form
     {
         form.Controls.Add(AppTheme.CreateLabel(label, 9.5F, FontStyle.Bold));
         var input = AppTheme.CreateTextBox();
-        input.Width = 360;
+        input.Width = 480;
         input.Text = value;
-        form.Controls.Add(input);
+        form.Controls.Add(AppTheme.CreateInputFrame(input));
         return input;
     }
 

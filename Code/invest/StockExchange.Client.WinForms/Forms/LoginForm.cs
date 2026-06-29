@@ -10,6 +10,7 @@ public partial class LoginForm : Form
     private readonly AuthClientService _authService;
     private readonly StockClientService _stockService;
     private readonly ChartClientService _chartService;
+    private readonly WatchlistClientService _watchlistService;
     private readonly TextBox _username = AppTheme.CreateTextBox("Tên đăng nhập hoặc email");
     private readonly TextBox _password = AppTheme.CreateTextBox("Mật khẩu");
 
@@ -18,6 +19,7 @@ public partial class LoginForm : Form
         _authService = new AuthClientService(_connection);
         _stockService = new StockClientService(_connection);
         _chartService = new ChartClientService(_connection);
+        _watchlistService = new WatchlistClientService(_connection);
         Text = "Invest App - Đăng nhập";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1050, 680);
@@ -143,13 +145,14 @@ public partial class LoginForm : Form
             RowCount = 3
         };
         host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-        host.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430));
+        host.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 470));
         host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
         host.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
         host.RowStyles.Add(new RowStyle(SizeType.Absolute, 580));
         host.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
         var card = AppTheme.CreateCard(36);
         card.Dock = DockStyle.Fill;
+        card.Margin = Padding.Empty;
         host.Controls.Add(card, 1, 1);
 
         var form = new FlowLayoutPanel
@@ -162,19 +165,29 @@ public partial class LoginForm : Form
         form.Controls.Add(AppTheme.CreateLabel("Đăng nhập để tiếp tục vào Invest App.", 10F, FontStyle.Regular, AppTheme.Muted));
         form.Controls.Add(Spacer(18));
         form.Controls.Add(AppTheme.CreateLabel("Tên đăng nhập / Email", 9.5F, FontStyle.Bold));
-        _username.Width = 330;
+        const int loginControlWidth = 390;
+        _username.Width = loginControlWidth;
         _username.Text = "demo_user";
-        form.Controls.Add(_username);
+        var usernameFrame = AppTheme.CreateInputFrame(_username);
+        usernameFrame.Width = loginControlWidth;
+        usernameFrame.Margin = new Padding(0, AppTheme.SpaceXs, 0, AppTheme.SpaceMd);
+        form.Controls.Add(usernameFrame);
         form.Controls.Add(AppTheme.CreateLabel("Mật khẩu", 9.5F, FontStyle.Bold));
-        _password.Width = 330;
+        _password.Width = loginControlWidth;
         _password.UseSystemPasswordChar = true;
         _password.Text = "123456";
-        form.Controls.Add(_password);
+        var passwordFrame = AppTheme.CreateInputFrame(_password);
+        passwordFrame.Width = loginControlWidth;
+        passwordFrame.Margin = new Padding(0, AppTheme.SpaceXs, 0, AppTheme.SpaceMd);
+        form.Controls.Add(passwordFrame);
 
-        var options = new TableLayoutPanel { Width = 330, Height = 44, ColumnCount = 2 };
-        options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
-        options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
-        options.Controls.Add(new CheckBox { Text = "Ghi nhớ đăng nhập", AutoSize = true, ForeColor = AppTheme.Muted, Anchor = AnchorStyles.Left }, 0, 0);
+        var options = new TableLayoutPanel { Width = loginControlWidth, Height = 50, ColumnCount = 2 };
+        options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
+        options.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
+        var remember = AppTheme.CreateCheckBox("Ghi nhớ đăng nhập");
+        remember.Dock = DockStyle.Fill;
+        remember.Margin = Padding.Empty;
+        options.Controls.Add(remember, 0, 0);
         var forgot = new LinkLabel
         {
             Text = "Quên mật khẩu?",
@@ -182,12 +195,13 @@ public partial class LoginForm : Form
             LinkColor = AppTheme.Primary,
             Anchor = AnchorStyles.Right
         };
-        forgot.Click += (_, _) => AppTheme.ShowTemplateNotice(this, "Khôi phục mật khẩu");
+        forgot.Click += (_, _) => AppTheme.ShowTemplateNotice(this, "Oops! Quên mật khẩu", "Hãy cố gắng nhớ lại mật khẩu của bạn ~~. Chứng năng này đang được phát triển và sẽ sớm ra mắt trong các bản cập nhật tiếp theo. Hãy kiên nhẫn chờ đợi nhé!");
         options.Controls.Add(forgot, 1, 0);
         form.Controls.Add(options);
 
         var login = AppTheme.CreateButton("Đăng nhập");
-        login.Width = 330;
+        login.Width = loginControlWidth;
+        login.Margin = new Padding(0, AppTheme.SpaceMd, 0, AppTheme.SpaceSm);
         login.Click += async (_, _) => await OpenApplicationAsync(login);
         form.Controls.Add(login);
         form.Controls.Add(AppTheme.CreateLabel("Dùng username “admin” để xem giao diện Admin.", 9F, FontStyle.Italic, AppTheme.Muted));
@@ -234,6 +248,7 @@ public partial class LoginForm : Form
                 _authService,
                 _stockService,
                 _chartService,
+                _watchlistService,
                 _connection);
             main.ShowDialog();
             Show();

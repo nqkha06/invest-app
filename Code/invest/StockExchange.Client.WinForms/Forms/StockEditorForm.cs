@@ -1,5 +1,5 @@
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 
 namespace StockExchange.Client.WinForms.Forms;
 
@@ -52,14 +52,7 @@ public class StockEditorForm : Form
             Maximum = 100_000,
             ThousandsSeparator = true
         };
-        var active = new CheckBox
-        {
-            Text = "Đang hoạt động",
-            Checked = stock?.Active ?? true,
-            AutoSize = true,
-            ForeColor = AppTheme.Text,
-            Anchor = AnchorStyles.Left
-        };
+        var active = AppTheme.CreateCheckBox("Đang hoạt động", stock?.Active ?? true);
 
         symbol.Text = stock?.Symbol ?? string.Empty;
         company.Text = stock?.Company ?? string.Empty;

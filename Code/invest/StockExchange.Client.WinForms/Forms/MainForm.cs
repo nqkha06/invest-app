@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 using StockExchange.Client.WinForms.Services;
 using StockExchange.Shared.DTOs;
 using StockExchange.Shared.Models;
@@ -15,6 +15,7 @@ public partial class MainForm : Form
     private readonly AuthClientService _authService;
     private readonly StockClientService _stockService;
     private readonly ChartClientService _chartService;
+    private readonly WatchlistClientService _watchlistService;
     private readonly ClientConnectionService _connection;
     private UserProfileDto _profile;
     private readonly Label _accountName = new();
@@ -29,7 +30,8 @@ public partial class MainForm : Form
     private readonly Dictionary<long, StockPriceUpdateDto> _pendingPriceUpdates = [];
     private readonly System.Windows.Forms.Timer _priceUpdateTimer = new() { Interval = 1000 };
     private int _refreshStocksInFlight;
-    private StockRow _selectedStock = MockData.Stocks[0];
+    private StockRow? _selectedStock;
+    private readonly HashSet<long> _watchlistStockIds = [];
     private string _currentPage = string.Empty;
     private string _marketSearch = string.Empty;
     private StockTableControl? _marketTable;
@@ -50,6 +52,7 @@ public partial class MainForm : Form
         AuthClientService authService,
         StockClientService stockService,
         ChartClientService chartService,
+        WatchlistClientService watchlistService,
         ClientConnectionService connection)
     {
         _username = login.Username ?? "User"; 
@@ -57,6 +60,7 @@ public partial class MainForm : Form
         _authService = authService;
         _stockService = stockService;
         _chartService = chartService;
+        _watchlistService = watchlistService;
         _connection = connection;
         _connection.StockPriceUpdated += HandleStockPriceUpdated;
         _priceUpdateTimer.Tick += (_, _) => FlushPendingPriceUpdates();
@@ -85,6 +89,7 @@ public partial class MainForm : Form
         shell.Controls.Add(BuildSidebar(), 0, 0);
         shell.Controls.Add(BuildWorkspace(), 1, 0);
         Navigate(_isAdmin ? "Tổng quan" : "Thị trường");
+        _ = RefreshWatchlistAsync();
         Shown += (_, _) => AppTheme.ApplyCommonStyles(this);
         FormClosed += (_, _) =>
         {
@@ -195,21 +200,7 @@ public partial class MainForm : Form
 
     private Button CreateNavButton(string text)
     {
-        var button = new Button
-        {
-            Text = text,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Width = 200,
-            Height = 48,
-            FlatStyle = FlatStyle.Flat,
-            BackColor = AppTheme.Sidebar,
-            ForeColor = Color.FromArgb(203, 213, 225),
-            Font = AppTheme.CreateFont(15F, FontStyle.Bold),
-            Padding = new Padding(14, 0, 6, 0),
-            Margin = new Padding(0, 4, 0, 4),
-            Cursor = Cursors.Hand
-        };
-        button.FlatAppearance.BorderSize = 0;
+        var button = AppTheme.CreateSidebarButton(text);
         button.Click += (_, _) => Navigate(text);
         _navButtons[text] = button;
         return button;
@@ -268,7 +259,7 @@ public partial class MainForm : Form
             "Cổ phiếu" => BuildAdminStocksPage(),
             "Mô phỏng" => BuildSimulationPage(),
             "Thị trường" => BuildMarketPage(),
-            "Chi tiết stock" => BuildStockDetailPage(_selectedStock),
+            "Chi tiết stock" => _selectedStock is null ? BuildEmptyDetailPage() : BuildStockDetailPage(_selectedStock),
             "Watchlist" => BuildWatchlistPage(),
             "Hồ sơ" => BuildProfilePage(),
             _ => new Panel()
@@ -314,10 +305,6 @@ public partial class MainForm : Form
         }
         catch
         {
-            if (_stocks.Count == 0)
-            {
-                ApplyStockRows(MockData.Stocks);
-            }
         }
         finally
         {
@@ -341,7 +328,7 @@ public partial class MainForm : Form
             }
         }
 
-        if (_stocks.Count > 0 && !_stockById.ContainsKey(_selectedStock.Id))
+        if (_selectedStock is null && _stocks.Count > 0)
         {
             _selectedStock = _stocks[0];
         }
@@ -349,33 +336,48 @@ public partial class MainForm : Form
         RebindMarket();
     }
 
-    private void ApplyStockRows(IEnumerable<StockRow> rows)
+    private async Task RefreshWatchlistAsync()
     {
-        foreach (var source in rows)
+        try
         {
-            if (!_stockById.TryGetValue(source.Id, out var row))
+            var watchlist = await _watchlistService.GetAsync();
+            if (IsDisposed)
             {
-                row = new StockRow();
-                _stockById[source.Id] = row;
-                _stocks.Add(row);
+                return;
             }
 
-            row.Id = source.Id;
-            row.Symbol = source.Symbol;
-            row.Company = source.Company;
-            row.Sector = source.Sector;
-            row.Price = source.Price;
-            row.ChangePercent = source.ChangePercent;
-            row.Volume = source.Volume;
-            row.Active = source.Active;
-        }
+            _watchlistStockIds.Clear();
+            foreach (var stock in watchlist)
+            {
+                _watchlistStockIds.Add(stock.Id);
+            }
 
-        if (_stocks.Count > 0 && !_stockById.ContainsKey(_selectedStock.Id))
+            ApplyStocks(watchlist);
+        }
+        catch
         {
-            _selectedStock = _stocks[0];
+            _watchlistStockIds.Clear();
+        }
+    }
+
+    private bool IsInWatchlist(StockRow stock) => _watchlistStockIds.Contains(stock.Id);
+
+    private async Task<bool> SetWatchlistAsync(StockRow stock, bool shouldWatch)
+    {
+        _ = shouldWatch
+            ? await _watchlistService.AddAsync(stock.Id)
+            : await _watchlistService.RemoveAsync(stock.Id);
+
+        if (shouldWatch)
+        {
+            _watchlistStockIds.Add(stock.Id);
+        }
+        else
+        {
+            _watchlistStockIds.Remove(stock.Id);
         }
 
-        RebindMarket();
+        return true;
     }
 
     private void HandleStockPriceUpdated(object? sender, StockPriceUpdateDto update)
@@ -459,7 +461,7 @@ public partial class MainForm : Form
             stock.Volume = update.Volume;
         }
 
-        if (_selectedStock.Id == stock.Id)
+        if (_selectedStock?.Id == stock.Id)
         {
             _selectedStock = stock;
             _detailPrice?.Text = $"{stock.Price:N2}";

@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using StockExchange.Client.WinForms.Controls;
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 using StockExchange.Shared.DTOs;
 
 namespace StockExchange.Client.WinForms.Forms;
@@ -82,20 +82,26 @@ public partial class MainForm : Form
             ForeColor = stock.ChangePercent >= 0 ? AppTheme.Success : AppTheme.Danger
         };
         overviewLayout.Controls.Add(_detailChange, 1, 1);
-        var watch = AppTheme.CreateButton(MockData.Watchlist.Contains(stock) ? "Đã theo dõi" : "+ Watchlist");
+        var watch = AppTheme.CreateButton(IsInWatchlist(stock) ? "Đã theo dõi" : "+ Watchlist");
         watch.Anchor = AnchorStyles.Right;
         watch.Margin = new Padding(AppTheme.SpaceLg, 0, 0, 0);
-        watch.Click += (_, _) =>
+        watch.Click += async (_, _) =>
         {
-            if (MockData.Watchlist.Contains(stock))
+            watch.Enabled = false;
+            try
             {
-                MockData.Watchlist.Remove(stock);
-                watch.Text = "+ Watchlist";
+                var shouldWatch = !IsInWatchlist(stock);
+                await SetWatchlistAsync(stock, shouldWatch);
+                watch.Text = shouldWatch ? "Đã theo dõi" : "+ Watchlist";
             }
-            else
+            catch (Exception ex)
             {
-                MockData.Watchlist.Add(stock);
-                watch.Text = "Đã theo dõi";
+                MessageBox.Show(this, ex.Message, "Không thể cập nhật watchlist",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                watch.Enabled = true;
             }
         };
         overviewLayout.Controls.Add(watch, 2, 0);
@@ -150,11 +156,6 @@ public partial class MainForm : Form
             catch
             {
                 _detailCandles.Clear();
-            }
-
-            if (_detailCandles.Count == 0)
-            {
-                _detailCandles.AddRange(MockData.BuildCandles(stock, count, interval));
             }
 
             while (_detailCandles.Count > count)
@@ -250,6 +251,18 @@ public partial class MainForm : Form
         metrics.Controls.Add(BuildStatCard("Khối lượng", $"{stock.Volume:N0}", "Cổ phiếu", AppTheme.Warning));
         page.Controls.Add(metrics, 0, 3);
         return scrollHost;
+    }
+
+    private Control BuildEmptyDetailPage()
+    {
+        return new Label
+        {
+            Text = "Chọn một cổ phiếu từ bảng giá để xem chi tiết.",
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font = AppTheme.BodyFont,
+            ForeColor = AppTheme.Muted
+        };
     }
 
     private static CandlePoint ToCandlePoint(PriceHistoryDto point)

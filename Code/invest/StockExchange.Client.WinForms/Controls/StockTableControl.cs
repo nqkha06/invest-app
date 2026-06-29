@@ -1,5 +1,5 @@
 using StockExchange.Client.WinForms.Helpers;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 
 namespace StockExchange.Client.WinForms.Controls;
 

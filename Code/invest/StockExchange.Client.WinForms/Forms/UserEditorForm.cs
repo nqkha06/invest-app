@@ -1,6 +1,6 @@
 using StockExchange.Client.WinForms.Helpers;
 using StockExchange.Shared.DTOs;
-using StockExchange.Client.WinForms.Mock;
+using StockExchange.Client.WinForms.Models;
 
 namespace StockExchange.Client.WinForms.Forms;
 

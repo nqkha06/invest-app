@@ -10,15 +10,18 @@ public class MessageDispatcher
     private readonly AuthMessageHandler _authHandler;
     private readonly StockMessageHandler _stockHandler;
     private readonly ChartMessageHandler _chartHandler;
+    private readonly WatchlistMessageHandler _watchlistHandler;
 
     public MessageDispatcher(
         AuthMessageHandler authHandler,
         StockMessageHandler stockHandler,
-        ChartMessageHandler chartHandler)
+        ChartMessageHandler chartHandler,
+        WatchlistMessageHandler watchlistHandler)
     {
         _authHandler = authHandler;
         _stockHandler = stockHandler;
         _chartHandler = chartHandler;
+        _watchlistHandler = watchlistHandler;
     }
 
     public async Task<AppMessage> DispatchAsync(
@@ -47,6 +50,9 @@ public class MessageDispatcher
                 MessageType.AdminGetDashboard => await AdminGetDashboardAsync(session, message, cancellationToken),
                 MessageType.AdminGetSimulations => await AdminGetSimulationsAsync(session, message, cancellationToken),
                 MessageType.AdminUpdateSimulation => await AdminUpdateSimulationAsync(session, message, cancellationToken),
+                MessageType.GetWatchlist => await GetWatchlistAsync(session, message, cancellationToken),
+                MessageType.AddToWatchlist => await AddToWatchlistAsync(session, message, cancellationToken),
+                MessageType.RemoveFromWatchlist => await RemoveFromWatchlistAsync(session, message, cancellationToken),
                 _ => AppMessage.Failure(message.Type, message.RequestId, "Unsupported message type.")
             };
         }
@@ -237,6 +243,38 @@ public class MessageDispatcher
         var adminUserId = RequireUser(session);
         var request = Deserialize<StockSimulationUpdateDto>(message);
         var response = await _stockHandler.HandleUpdateSimulationAsync(adminUserId, request, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> GetWatchlistAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var response = await _watchlistHandler.HandleGetWatchlistAsync(
+            RequireUser(session), cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> AddToWatchlistAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var request = Deserialize<WatchlistModifyRequestDto>(message);
+        var response = await _watchlistHandler.HandleAddToWatchlistAsync(
+            RequireUser(session), request.StockId, cancellationToken);
+        return AppMessage.Create(message.Type, response, message.RequestId);
+    }
+
+    private async Task<AppMessage> RemoveFromWatchlistAsync(
+        ClientSession session,
+        AppMessage message,
+        CancellationToken cancellationToken)
+    {
+        var request = Deserialize<WatchlistModifyRequestDto>(message);
+        var response = await _watchlistHandler.HandleRemoveFromWatchlistAsync(
+            RequireUser(session), request.StockId, cancellationToken);
         return AppMessage.Create(message.Type, response, message.RequestId);
     }
 

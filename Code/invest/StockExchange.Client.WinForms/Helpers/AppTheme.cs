@@ -1,5 +1,7 @@
 namespace StockExchange.Client.WinForms.Helpers;
 
+using System.Drawing.Drawing2D;
+
 public static class AppTheme
 {
     public const int SpaceXs = 4;
@@ -10,6 +12,9 @@ public static class AppTheme
     public const int ControlHeight = 42;
     public const int ButtonHeight = 44;
     public const int CardPadding = 16;
+    public const int RadiusSm = 8;
+    public const int RadiusMd = 10;
+    public const int RadiusLg = 14;
 
     public static readonly Color Background = Color.FromArgb(245, 247, 251);
     public static readonly Color Surface = Color.White;
@@ -33,7 +38,7 @@ public static class AppTheme
 
     public static Button CreateButton(string text, bool primary = true)
     {
-        var button = new Button
+        var button = new RoundedButton
         {
             Text = text,
             AutoSize = false,
@@ -47,6 +52,7 @@ public static class AppTheme
             ForeColor = primary ? Color.White : Text,
             Margin = new Padding(SpaceSm)
         };
+        button.Configure(RadiusMd, primary ? Primary : Border);
         button.FlatAppearance.BorderColor = primary ? Primary : Border;
         button.FlatAppearance.BorderSize = 1;
         return button;
@@ -54,12 +60,14 @@ public static class AppTheme
 
     public static Panel CreateCard(int padding = CardPadding)
     {
-        return new Panel
+        var card = new RoundedPanel
         {
             BackColor = Surface,
             Padding = new Padding(padding),
             Margin = new Padding(SpaceSm)
         };
+        card.Configure(RadiusLg, Border);
+        return card;
     }
 
     public static Label CreateLabel(
@@ -84,11 +92,64 @@ public static class AppTheme
         return new TextBox
         {
             PlaceholderText = placeholder,
-            BorderStyle = BorderStyle.FixedSingle,
+            BorderStyle = BorderStyle.None,
             Font = BodyFont,
-            MinimumSize = new Size(120, ControlHeight),
+            MinimumSize = new Size(120, 0),
+            BackColor = Surface,
             Margin = new Padding(0, SpaceXs, 0, SpaceMd)
         };
+    }
+
+    public static Control CreateInputFrame(TextBox input)
+    {
+        input.Dock = DockStyle.None;
+        input.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+
+        var frame = new InputFrame(input)
+        {
+            Width = Math.Max(120, input.Width),
+            Height = ControlHeight,
+            MinimumSize = new Size(120, ControlHeight),
+            Margin = input.Margin
+        };
+        input.Margin = Padding.Empty;
+        return frame;
+    }
+
+    public static CheckBox CreateCheckBox(string text, bool isChecked = false)
+    {
+        return new StyledCheckBox
+        {
+            Text = text,
+            Checked = isChecked,
+            AutoSize = false,
+            Width = 240,
+            Height = ControlHeight,
+            Font = BodyFont,
+            ForeColor = Muted,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, SpaceXs, SpaceMd, SpaceMd),
+            Cursor = Cursors.Hand
+        };
+    }
+
+    public static Button CreateSidebarButton(string text)
+    {
+        var button = new RoundedButton
+        {
+            Text = text,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Width = 200,
+            Height = 48,
+            BackColor = Sidebar,
+            ForeColor = Color.FromArgb(203, 213, 225),
+            Font = CreateFont(15F, FontStyle.Bold),
+            Padding = new Padding(14, 0, 6, 0),
+            Margin = new Padding(0, SpaceXs, 0, SpaceXs),
+            Cursor = Cursors.Hand
+        };
+        button.Configure(RadiusMd, Sidebar);
+        return button;
     }
 
     public static DataGridView CreateGrid()
@@ -184,11 +245,13 @@ public static class AppTheme
         label.Anchor = AnchorStyles.Left;
         label.Margin = new Padding(0, SpaceSm, SpaceMd, SpaceMd);
 
-        input.Dock = DockStyle.Top;
-        input.Margin = new Padding(0, SpaceXs, 0, SpaceMd);
-        input.MinimumSize = new Size(160, ControlHeight);
+        var fieldControl = input is TextBox textBox ? CreateInputFrame(textBox) : input;
+        fieldControl.Dock = DockStyle.Top;
+        fieldControl.Margin = new Padding(0, SpaceXs, 0, SpaceMd);
+        fieldControl.MinimumSize = new Size(160, ControlHeight);
+
         grid.Controls.Add(label, 0, row);
-        grid.Controls.Add(input, 1, row);
+        grid.Controls.Add(fieldControl, 1, row);
     }
 
     public static void ApplyCommonStyles(Control root)
@@ -203,15 +266,24 @@ public static class AppTheme
                 case ComboBox combo:
                     combo.Font = BodyFont;
                     combo.IntegralHeight = false;
+                    combo.FlatStyle = FlatStyle.Flat;
+                    combo.BackColor = Surface;
                     combo.MinimumSize = new Size(120, ControlHeight);
                     break;
                 case NumericUpDown numeric:
                     numeric.Font = BodyFont;
+                    numeric.BorderStyle = BorderStyle.FixedSingle;
+                    numeric.BackColor = Surface;
                     numeric.MinimumSize = new Size(120, ControlHeight);
                     break;
                 case TextBox textBox:
                     textBox.Font = BodyFont;
-                    textBox.MinimumSize = new Size(120, ControlHeight);
+                    textBox.BorderStyle = BorderStyle.None;
+                    textBox.MinimumSize = new Size(120, 0);
+                    break;
+                case CheckBox checkBox:
+                    checkBox.Font = BodyFont;
+                    checkBox.ForeColor = Muted;
                     break;
                 case TabControl tabs:
                     tabs.Padding = new Point(SpaceMd, SpaceSm);
@@ -247,12 +319,274 @@ public static class AppTheme
         grid.DefaultCellStyle.SelectionForeColor = Text;
     }
 
-    public static void ShowTemplateNotice(IWin32Window owner, string action)
+    private static GraphicsPath CreateRoundPath(Rectangle bounds, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = Math.Max(1, radius * 2);
+        var arc = new Rectangle(bounds.Location, new Size(diameter, diameter));
+
+        path.AddArc(arc, 180, 90);
+        arc.X = bounds.Right - diameter;
+        path.AddArc(arc, 270, 90);
+        arc.Y = bounds.Bottom - diameter;
+        path.AddArc(arc, 0, 90);
+        arc.X = bounds.Left;
+        path.AddArc(arc, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private sealed class RoundedButton : Button
+    {
+        private int _borderRadius = RadiusMd;
+        private Color _borderColor = Border;
+
+        public RoundedButton()
+        {
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+        }
+
+        public void Configure(int borderRadius, Color borderColor)
+        {
+            _borderRadius = borderRadius;
+            _borderColor = borderColor;
+        }
+
+        protected override void OnResize(EventArgs eventArgs)
+        {
+            base.OnResize(eventArgs);
+            using var path = CreateRoundPath(new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1)), _borderRadius);
+            Region = new Region(path);
+        }
+
+        protected override void OnPaint(PaintEventArgs eventArgs)
+        {
+            eventArgs.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var path = CreateRoundPath(new Rectangle(0, 0, Width - 1, Height - 1), _borderRadius);
+            using var fill = new SolidBrush(BackColor);
+            using var border = new Pen(_borderColor);
+            eventArgs.Graphics.FillPath(fill, path);
+            eventArgs.Graphics.DrawPath(border, path);
+            var textBounds = new Rectangle(
+                Padding.Left,
+                Padding.Top,
+                Math.Max(0, Width - Padding.Horizontal),
+                Math.Max(0, Height - Padding.Vertical));
+            var flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
+            flags |= TextAlign switch
+            {
+                ContentAlignment.MiddleLeft or ContentAlignment.TopLeft or ContentAlignment.BottomLeft => TextFormatFlags.Left,
+                ContentAlignment.MiddleRight or ContentAlignment.TopRight or ContentAlignment.BottomRight => TextFormatFlags.Right,
+                _ => TextFormatFlags.HorizontalCenter
+            };
+            TextRenderer.DrawText(
+                eventArgs.Graphics,
+                Text,
+                Font,
+                textBounds,
+                ForeColor,
+                flags);
+        }
+    }
+
+    private class RoundedPanel : Panel
+    {
+        private int _borderRadius = RadiusLg;
+        private Color _borderColor = Border;
+
+        public RoundedPanel()
+        {
+            DoubleBuffered = true;
+        }
+
+        public void Configure(int borderRadius, Color borderColor)
+        {
+            _borderRadius = borderRadius;
+            _borderColor = borderColor;
+        }
+
+        protected override void OnResize(EventArgs eventArgs)
+        {
+            base.OnResize(eventArgs);
+            using var path = CreateRoundPath(new Rectangle(0, 0, Math.Max(1, Width - 1), Math.Max(1, Height - 1)), _borderRadius);
+            Region = new Region(path);
+        }
+
+        protected override void OnPaint(PaintEventArgs eventArgs)
+        {
+            base.OnPaint(eventArgs);
+            eventArgs.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var path = CreateRoundPath(new Rectangle(0, 0, Width - 1, Height - 1), _borderRadius);
+            using var border = new Pen(_borderColor);
+            eventArgs.Graphics.DrawPath(border, path);
+        }
+    }
+
+    private sealed class InputFrame : Panel
+    {
+        private readonly TextBox _input;
+        private Color _borderColor = Border;
+
+        public InputFrame(TextBox input)
+        {
+            SetStyle(
+                ControlStyles.UserPaint
+                | ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.ResizeRedraw,
+                true);
+
+            _input = input;
+            BackColor = Surface;
+            Padding = new Padding(SpaceMd, 0, SpaceMd, 0);
+            Controls.Add(_input);
+            _input.BorderStyle = BorderStyle.None;
+            _input.BackColor = Surface;
+            _input.Font = BodyFont;
+            _input.Enter += (_, _) =>
+            {
+                _borderColor = Primary;
+                Invalidate();
+            };
+            _input.Leave += (_, _) =>
+            {
+                _borderColor = Border;
+                Invalidate();
+            };
+            LayoutInput();
+        }
+
+        protected override void OnResize(EventArgs eventArgs)
+        {
+            base.OnResize(eventArgs);
+            LayoutInput();
+        }
+
+        protected override void OnControlAdded(ControlEventArgs eventArgs)
+        {
+            base.OnControlAdded(eventArgs);
+            LayoutInput();
+        }
+
+        protected override void OnPaint(PaintEventArgs eventArgs)
+        {
+            eventArgs.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            eventArgs.Graphics.Clear(Parent?.BackColor ?? Surface);
+
+            var borderBounds = new Rectangle(1, 1, Math.Max(1, Width - 3), Math.Max(1, Height - 3));
+            using var path = CreateRoundPath(borderBounds, RadiusSm);
+            using var fill = new SolidBrush(BackColor);
+            using var border = new Pen(_borderColor, 1.2F);
+            eventArgs.Graphics.FillPath(fill, path);
+            eventArgs.Graphics.DrawPath(border, path);
+        }
+
+        private void LayoutInput()
+        {
+            if (_input.IsDisposed)
+            {
+                return;
+            }
+
+            var inputHeight = _input.PreferredHeight;
+            _input.SetBounds(
+                Padding.Left,
+                Math.Max(1, (Height - inputHeight) / 2),
+                Math.Max(1, Width - Padding.Horizontal),
+                inputHeight);
+        }
+    }
+
+    private sealed class StyledCheckBox : CheckBox
+    {
+        private bool _hovered;
+
+        public StyledCheckBox()
+        {
+            SetStyle(
+                ControlStyles.UserPaint
+                | ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.ResizeRedraw,
+                true);
+        }
+
+        protected override void OnCheckedChanged(EventArgs eventArgs)
+        {
+            base.OnCheckedChanged(eventArgs);
+            Invalidate();
+        }
+
+        protected override void OnMouseEnter(EventArgs eventArgs)
+        {
+            base.OnMouseEnter(eventArgs);
+            _hovered = true;
+            Invalidate();
+        }
+
+        protected override void OnMouseLeave(EventArgs eventArgs)
+        {
+            base.OnMouseLeave(eventArgs);
+            _hovered = false;
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs eventArgs)
+        {
+            eventArgs.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            eventArgs.Graphics.Clear(Parent?.BackColor ?? Surface);
+
+            const int boxSize = 28;
+            var boxTop = Math.Max(0, (Height - boxSize) / 2);
+            var boxBounds = new Rectangle(0, boxTop, boxSize, boxSize);
+            var borderColor = Checked ? Primary : (_hovered ? Color.FromArgb(148, 163, 184) : Border);
+            var fillColor = Checked ? Primary : Surface;
+
+            using var boxPath = CreateRoundPath(boxBounds, RadiusSm);
+            using var fill = new SolidBrush(fillColor);
+            using var border = new Pen(borderColor, 1.4F);
+            eventArgs.Graphics.FillPath(fill, boxPath);
+            eventArgs.Graphics.DrawPath(border, boxPath);
+
+            if (Checked)
+            {
+                using var checkPen = new Pen(Color.White, 2.4F)
+                {
+                    StartCap = LineCap.Round,
+                    EndCap = LineCap.Round,
+                    LineJoin = LineJoin.Round
+                };
+                var points = new[]
+                {
+                    new PointF(boxBounds.Left + 7, boxBounds.Top + 14),
+                    new PointF(boxBounds.Left + 12, boxBounds.Top + 19),
+                    new PointF(boxBounds.Left + 21, boxBounds.Top + 9)
+                };
+                eventArgs.Graphics.DrawLines(checkPen, points);
+            }
+
+            var textBounds = new Rectangle(
+                boxBounds.Right + SpaceSm,
+                0,
+                Math.Max(0, Width - boxBounds.Right - SpaceSm),
+                Height);
+            TextRenderer.DrawText(
+                eventArgs.Graphics,
+                Text,
+                Font,
+                textBounds,
+                ForeColor,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        }
+    }
+
+    public static void ShowTemplateNotice(IWin32Window owner, string action, string message = "")
     {
         MessageBox.Show(
             owner,
-            $"{action}\n\nĐây là thao tác minh họa. Chưa kết nối server.",
-            "UI Template",
+            $"{action}\n\n{message ?? "Chức năng đang được phát triển ..!"}",
+            "Thông báo",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
     }

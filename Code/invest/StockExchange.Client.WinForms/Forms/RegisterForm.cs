@@ -46,8 +46,8 @@ public class RegisterForm : Form
         layout.Controls.Add(header, 0, 0);
 
         var fields = AppTheme.CreateFormGrid(170);
-        var username = AppTheme.CreateTextBox("Ví dụ: ngoquockha");
-        var email = AppTheme.CreateTextBox("name@example.com");
+        var username = AppTheme.CreateTextBox("Ví dụ: tencuaban");
+        var email = AppTheme.CreateTextBox("mail-cua-ban@vidu.com");
         var password = AppTheme.CreateTextBox("Tối thiểu 6 ký tự");
         password.UseSystemPasswordChar = true;
         var confirm = AppTheme.CreateTextBox("Nhập lại mật khẩu");
@@ -57,14 +57,7 @@ public class RegisterForm : Form
         AppTheme.AddField(fields, "Mật khẩu", password);
         AppTheme.AddField(fields, "Xác nhận mật khẩu", confirm);
 
-        var terms = new CheckBox
-        {
-            Text = "Tôi đồng ý với điều khoản sử dụng",
-            AutoSize = true,
-            ForeColor = AppTheme.Muted,
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(0, AppTheme.SpaceSm, 0, AppTheme.SpaceMd)
-        };
+        var terms = AppTheme.CreateCheckBox("Tôi đồng ý với điều khoản sử dụng");
         AppTheme.AddField(fields, string.Empty, terms);
         layout.Controls.Add(fields, 0, 1);
 
