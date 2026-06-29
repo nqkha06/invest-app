@@ -15,6 +15,23 @@ public class StockTableControl : UserControl
         BackColor = AppTheme.Surface;
         Margin = Padding.Empty;
         AutoScaleMode = AutoScaleMode.Font;
+        
+        _grid.AutoGenerateColumns = false;
+        
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(StockRow.Symbol), Name = nameof(StockRow.Symbol), HeaderText = "Mã" });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(StockRow.Company), Name = nameof(StockRow.Company), HeaderText = "Doanh nghiệp" });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(StockRow.Sector), Name = nameof(StockRow.Sector), HeaderText = "Ngành" });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(StockRow.Price), Name = nameof(StockRow.Price), HeaderText = "Giá" });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(StockRow.ChangePercent), Name = nameof(StockRow.ChangePercent), HeaderText = "% thay đổi" });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = nameof(StockRow.Volume), Name = nameof(StockRow.Volume), HeaderText = "Khối lượng" });
+
+        SetColumn(nameof(StockRow.Symbol), 80, 12F);
+        SetColumn(nameof(StockRow.Company), 180, 28F);
+        SetColumn(nameof(StockRow.Sector), 120, 18F);
+        SetColumn(nameof(StockRow.Price), 90, 14F);
+        SetColumn(nameof(StockRow.ChangePercent), 110, 14F);
+        SetColumn(nameof(StockRow.Volume), 110, 14F);
+
         Controls.Add(_grid);
         _grid.CellDoubleClick += (_, _) => RaiseSelected();
         _grid.KeyDown += (_, eventArgs) =>
@@ -30,7 +47,6 @@ public class StockTableControl : UserControl
     public void SetData(object dataSource)
     {
         _grid.DataSource = dataSource;
-        ConfigureColumns();
     }
 
     public StockRow? SelectedStock => _grid.CurrentRow?.DataBoundItem as StockRow;
@@ -45,40 +61,6 @@ public class StockTableControl : UserControl
         if (SelectedStock is { } stock)
         {
             StockSelected?.Invoke(this, stock);
-        }
-    }
-
-    private void ConfigureColumns()
-    {
-        foreach (DataGridViewColumn column in _grid.Columns)
-        {
-            column.Visible = column.Name is nameof(StockRow.Symbol)
-                or nameof(StockRow.Company)
-                or nameof(StockRow.Sector)
-                or nameof(StockRow.Price)
-                or nameof(StockRow.ChangePercent)
-                or nameof(StockRow.Volume);
-        }
-        SetHeader(nameof(StockRow.Symbol), "Mã");
-        SetHeader(nameof(StockRow.Company), "Doanh nghiệp");
-        SetHeader(nameof(StockRow.Sector), "Ngành");
-        SetHeader(nameof(StockRow.Price), "Giá");
-        SetHeader(nameof(StockRow.ChangePercent), "% thay đổi");
-        SetHeader(nameof(StockRow.Volume), "Khối lượng");
-
-        SetColumn(nameof(StockRow.Symbol), 80, 12F);
-        SetColumn(nameof(StockRow.Company), 180, 28F);
-        SetColumn(nameof(StockRow.Sector), 120, 18F);
-        SetColumn(nameof(StockRow.Price), 90, 14F);
-        SetColumn(nameof(StockRow.ChangePercent), 110, 14F);
-        SetColumn(nameof(StockRow.Volume), 110, 14F);
-    }
-
-    private void SetHeader(string name, string text)
-    {
-        if (_grid.Columns[name] is { } column)
-        {
-            column.HeaderText = text;
         }
     }
 

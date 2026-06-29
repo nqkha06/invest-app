@@ -231,8 +231,7 @@ public partial class LoginForm : Form
             response,
             _authService,
             _stockService,
-            _connection
-            
+            _connection            
         );
         main.ShowDialog();
         Show();
